@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# env & secrets — NEVER COMMIT
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# database
+postgres-data/
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+.turbo/

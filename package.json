@@ -1,0 +1,20 @@
+{
+  "name": "dgtlz-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @dgtlz/gateway & npm run dev --workspace @dgtlz/web",
+    "build": "npm run build --workspace @dgtlz/core && npm run build --workspace @dgtlz/db && npm run build --workspace @dgtlz/provider && npm run build --workspace @dgtlz/gateway && npm run build --workspace @dgtlz/web",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run migrate --workspace @dgtlz/db",
+    "db:generate": "npm run generate --workspace @dgtlz/db"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
