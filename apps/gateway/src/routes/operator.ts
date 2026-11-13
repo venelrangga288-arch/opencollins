@@ -26,7 +26,7 @@ function verifyOperator(req: FastifyRequest, secret: string): void {
 }
 
 export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app, opts) => {
-  const { prisma, adapter, jwtSecret } = opts.deps;
+  const { prisma, adapter, jwtSecret, apiKeyHashSecret } = opts.deps;
 
   app.post("/login", async (req) => {
     const parsed = LoginSchema.safeParse(req.body);
@@ -136,5 +136,145 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     verifyOperator(req, jwtSecret);
     const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
     return { data: logs };
+  });
+
+  // ============ FULL CONTROL EXTENSIONS ============
+
+  /** Create a user (optionally as ADMIN). */
+  const CreateUserSchema = z.object({
+    email: z.string().email().max(200),
+    password: z.string().min(8).max(128),
+    name: z.string().max(120).optional(),
+    role: z.enum(["USER", "ADMIN"]).optional(),
+  });
+  app.post("/users", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const parsed = CreateUserSchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, "valid email + password (min 8 chars) required");
+    const { createHash, randomBytes } = await import("node:crypto");
+    const passwordHash = createHash("sha256").update(parsed.data.password + (process.env.JWT_SECRET ?? "")).digest("hex");
+    const user = await prisma.user.create({
+      data: {
+        email: parsed.data.email.toLowerCase(),
+        passwordHash,
+        name: parsed.data.name,
+        role: parsed.data.role ?? "USER",
+      },
+      select: { id: true, email: true, name: true, role: true, status: true, createdAt: true },
+    });
+    await prisma.auditLog.create({ data: { actorId: "operator", action: "user.created", target: `user:${user.id}` } });
+    return user;
+  });
+
+  /** Create an API key ON BEHALF of a user. Full key returned exactly once. */
+  const CreateKeySchema = z.object({
+    userId: z.string().min(1),
+    name: z.string().min(1).max(80),
+  });
+  app.post("/users/keys", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const parsed = CreateKeySchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, "userId and name required");
+    const user = await prisma.user.findUnique({ where: { id: parsed.data.userId } });
+    if (!user) throw new GatewayError("invalid_request", 404, "user not found");
+    const { generateApiKey } = await import("@dgtlz/core");
+    const generated = generateApiKey(apiKeyHashSecret);
+    const key = await prisma.apiKey.create({
+      data: {
+        userId: user.id,
+        name: parsed.data.name,
+        keyHash: generated.hash,
+        prefix: generated.prefix,
+      },
+      select: { id: true, name: true, prefix: true, status: true, createdAt: true },
+    });
+    await prisma.auditLog.create({ data: { actorId: "operator", action: "key.created_for_user", target: `apiKey:${key.id}`, metadata: { userId: user.id } } });
+    return { ...key, key: generated.key };
+  });
+
+  /** Update a user's daily quota. */
+  const QuotaSchema = z.object({
+    requestsPerDay: z.number().int().min(1).max(1_000_000).optional(),
+    tokensPerDay: z.number().int().min(1000).max(1_000_000_000).optional(),
+  });
+  app.patch("/users/:id/quota", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const parsed = QuotaSchema.safeParse(req.body);
+    if (!parsed.success || (!parsed.data.requestsPerDay && !parsed.data.tokensPerDay)) {
+      throw new GatewayError("invalid_request", 400, "requestsPerDay and/or tokensPerDay required");
+    }
+    const quota = await prisma.usageQuota.upsert({
+      where: { userId: id },
+      create: {
+        userId: id,
+        requestsPerDay: parsed.data.requestsPerDay ?? 1000,
+        tokensPerDay: parsed.data.tokensPerDay ?? 1_000_000,
+      },
+      update: {
+        ...(parsed.data.requestsPerDay !== undefined && { requestsPerDay: parsed.data.requestsPerDay }),
+        ...(parsed.data.tokensPerDay !== undefined && { tokensPerDay: parsed.data.tokensPerDay }),
+      },
+    });
+    await prisma.auditLog.create({ data: { actorId: "operator", action: "user.quota_updated", target: `user:${id}`, metadata: parsed.data } });
+    return quota;
+  });
+
+  /** Usage overview: per-user totals over the last N days. */
+  app.get("/usage", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const days = Math.min(Number((req.query as { days?: string }).days ?? "7") || 7, 90);
+    const since = new Date(Date.now() - days * 86400_000);
+    const records = await prisma.usageRecord.findMany({
+      where: { recordedAt: { gte: since } },
+      select: { userId: true, model: true, inputTokens: true, outputTokens: true, totalTokens: true },
+    });
+    const byUser = new Map<string, { requests: number; inputTokens: number; outputTokens: number; totalTokens: number }>();
+    const byModel = new Map<string, { requests: number; totalTokens: number }>();
+    for (const r of records) {
+      const u = byUser.get(r.userId) ?? { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      u.requests++; u.inputTokens += r.inputTokens ?? 0; u.outputTokens += r.outputTokens ?? 0; u.totalTokens += r.totalTokens ?? 0;
+      byUser.set(r.userId, u);
+      const m = byModel.get(r.model) ?? { requests: 0, totalTokens: 0 };
+      m.requests++; m.totalTokens += r.totalTokens ?? 0;
+      byModel.set(r.model, m);
+    }
+    const users = await prisma.user.findMany({ select: { id: true, email: true } });
+    const emailOf = new Map(users.map((u) => [u.id, u.email]));
+    return {
+      days,
+      byUser: [...byUser.entries()].map(([id, v]) => ({ userId: id, email: emailOf.get(id) ?? id, ...v })),
+      byModel: [...byModel.entries()].map(([model, v]) => ({ model, ...v })),
+    };
+  });
+
+  /** Live test chat through the gateway (uses the provider directly). */
+  const TestChatSchema = z.object({
+    model: z.string().min(1).max(80),
+    prompt: z.string().min(1).max(2000),
+  });
+  app.post("/test-chat", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const parsed = TestChatSchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, "model and prompt required");
+    const result = await adapter.chat({
+      model: parsed.data.model,
+      messages: [{ role: "user", content: parsed.data.prompt }],
+      max_tokens: 200,
+    });
+    const body = result.body as { choices?: Array<{ message?: { content?: string } }>; usage?: { total_tokens?: number } } | null;
+    return {
+      httpStatus: result.httpStatus,
+      latencyMs: result.latencyMs,
+      content: body?.choices?.[0]?.message?.content ?? null,
+      usage: body?.usage ?? null,
+    };
+  });
+
+  /** Models currently available from the provider. */
+  app.get("/models", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const models = await adapter.listModels().catch(() => []);
+    return { data: models };
   });
 };
