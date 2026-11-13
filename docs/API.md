@@ -1,6 +1,6 @@
 # DGT.LZ Gateway — Public API Reference
 
-Base: `https://dgtlz.my.id/api/v1` (dev: `http://localhost:4000/api/v1`)
+Base: `https://dgtlz.my.id/api/v1` (dev: `http://localhost:4101/api/v1`)
 
 All data-plane endpoints require `Authorization: Bearer dgtlz_live_...`.
 Errors use the envelope `{ "error": { "code", "message", "request_id" } }`.

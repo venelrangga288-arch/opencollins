@@ -47,6 +47,9 @@ export function extractUsage(responseBody: unknown): ExtractedUsage {
   }
   const input = asCount(raw.prompt_tokens) ?? asCount(raw.input_tokens);
   const output = asCount(raw.completion_tokens) ?? asCount(raw.output_tokens);
+  if (input === null && output === null) {
+    return { usage: { inputTokens: null, outputTokens: null, totalTokens: null }, source: "none" };
+  }
   let total = asCount(raw.total_tokens);
   if (total === null && input !== null && output !== null) total = input + output;
   return { usage: { inputTokens: input, outputTokens: output, totalTokens: total }, source: "provider" };

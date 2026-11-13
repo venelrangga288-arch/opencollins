@@ -37,7 +37,7 @@ export async function requireApiKey(req: FastifyRequest, deps: AppDeps): Promise
     where: { id: record.id },
     data: { lastUsedAt: new Date(), requestCount: { increment: 1 } },
   }).catch(() => {});
-  return { userId: record.userId, apiKeyId: record.id, role: record.user.role };
+  return { userId: record.user.id, apiKeyId: record.id, role: record.user.role };
 }
 
 const CreateKeySchema = z.object({

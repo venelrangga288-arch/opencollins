@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4000";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4101";
 
 interface ModelInfo {
   id: string;

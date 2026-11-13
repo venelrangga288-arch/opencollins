@@ -13,7 +13,7 @@ interface Summary {
   byDay: Array<{ day: string; requests: number; tokens: number; estimatedCostUsd: number | null }>;
 }
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4000";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4101";
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);

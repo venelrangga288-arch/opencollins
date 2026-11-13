@@ -61,6 +61,23 @@ export async function processUsageJob(prisma: PrismaClient, job: UsageJobData, l
     pricing,
   );
 
+  // RequestLog first — UsageRecord.requestId is a FK to RequestLog.requestId.
+  await prisma.requestLog.upsert({
+    where: { requestId: job.requestId },
+    create: {
+      requestId: job.requestId,
+      userId: job.userId,
+      apiKeyId: job.apiKeyId,
+      providerId: await resolveProviderId(prisma, job.providerSlug),
+      model: job.model,
+      endpoint: job.endpoint,
+      status: job.httpStatus >= 200 && job.httpStatus < 300 ? "SUCCESS" : "PROVIDER_ERROR",
+      httpStatus: job.httpStatus,
+      latencyMs: job.latencyMs,
+    },
+    update: {},
+  });
+
   // Upsert semantics protect against races between retries.
   await prisma.usageRecord.upsert({
     where: { requestId: job.requestId },
@@ -76,22 +93,6 @@ export async function processUsageJob(prisma: PrismaClient, job: UsageJobData, l
       latencyMs: job.latencyMs,
       estimatedCost,
       billingStatus,
-    },
-    update: {},
-  });
-
-  await prisma.requestLog.upsert({
-    where: { requestId: job.requestId },
-    create: {
-      requestId: job.requestId,
-      userId: job.userId,
-      apiKeyId: job.apiKeyId,
-      providerId: await resolveProviderId(prisma, job.providerSlug),
-      model: job.model,
-      endpoint: job.endpoint,
-      status: job.httpStatus >= 200 && job.httpStatus < 300 ? "SUCCESS" : "PROVIDER_ERROR",
-      httpStatus: job.httpStatus,
-      latencyMs: job.latencyMs,
     },
     update: {},
   });

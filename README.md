@@ -52,12 +52,12 @@ npm run db:migrate
 npm run dev          # web on :3000, gateway on :4000
 ```
 
-1. Register at `http://localhost:3000`
+1. Register at `http://localhost:3100`
 2. Create an API key (shown once, `dgtlz_live_...`)
 3. Call the gateway:
 
 ```bash
-curl http://localhost:4000/api/v1/chat/completions \
+curl http://localhost:4101/api/v1/chat/completions \
   -H "Authorization: Bearer dgtlz_live_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"YOUR_MODEL","messages":[{"role":"user","content":"hi"}]}'

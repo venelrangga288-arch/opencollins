@@ -11,21 +11,23 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 const PREFIX = "dgtlz_live_";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-export function generateApiKey(): { key: string; prefix: string; hash: string } {
+export function generateApiKey(secret?: string): { key: string; prefix: string; hash: string } {
   const bytes = randomBytes(32);
   let key = PREFIX;
   for (let i = 0; i < bytes.length; i++) {
     key += ALPHABET[bytes[i] % ALPHABET.length];
   }
+  const hashSecret = secret ?? process.env.API_KEY_HASH_SECRET ?? "";
   return {
     key, // shown once
     prefix: key.slice(0, PREFIX.length + 8), // masked display
-    hash: hashApiKey(key),
+    hash: hashApiKey(key, hashSecret),
   };
 }
 
 export function hashApiKey(key: string, secret: string): string {
-  if (!secret || secret.includes("change-me")) {
+  const forbidden = ["", "change-me", "change-me-32-bytes-hex"];
+  if (forbidden.includes(secret) || secret.startsWith("change-me")) {
     throw new Error("API_KEY_HASH_SECRET must be set to a real secret");
   }
   return createHmac("sha256", secret).update(key).digest("hex");

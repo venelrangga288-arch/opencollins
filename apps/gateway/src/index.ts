@@ -39,7 +39,7 @@ const app = await buildApp({
   maxBodyBytes: Number(process.env.MAX_REQUEST_BODY_BYTES ?? "2097152"),
 });
 
-const port = Number(process.env.GATEWAY_PORT ?? "4000");
+const port = Number(process.env.GATEWAY_PORT ?? "4101");
 await app.listen({ port, host: "0.0.0.0" });
 app.log.info(`DGT.LZ gateway listening on :${port} (provider: ${adapter.slug})`);
 
