@@ -29,8 +29,8 @@ export interface OpenAgenticConfig {
   timeoutMs: number;
 }
 
-const CHAT_PATH = "/v1/chat/completions"; // OpenAgentic documented path
-const MODELS_PATH = "/v1/models";
+const CHAT_PATH = "/chat/completions"; // appended to configured base URL
+const MODELS_PATH = "/models";
 
 export class OpenAgenticAdapter implements ProviderAdapter {
   readonly slug = "openagentic";
@@ -88,7 +88,16 @@ export class OpenAgenticAdapter implements ProviderAdapter {
     }
 
     const latencyMs = Date.now() - started;
-    const body = await res.json().catch(() => null);
+    // Upstream quirk: OpenAgentic appends a trailing "data: [DONE]" SSE line to
+    // non-streaming JSON responses. Strip it before parsing.
+    const raw = await res.text();
+    const cleaned = raw.replace(/data:\s*\[DONE\]\s*$/, "").trim();
+    let body: unknown = cleaned;
+    try {
+      body = cleaned ? JSON.parse(cleaned) : null;
+    } catch {
+      // non-JSON body — pass through as string, never silently null
+    }
     return { httpStatus: res.status, body, latencyMs };
   }
 
@@ -123,11 +132,14 @@ export class OpenAgenticAdapter implements ProviderAdapter {
       throw new GatewayError("provider_error", 502, `upstream stream failed: HTTP ${res.status} ${detail.slice(0, 200)}`, res.status);
     }
 
+    // Collect chunks in the background for usage extraction. IMPORTANT:
+    // iterate over a tee'd branch — res.body can only have ONE reader.
+    const [bodyForClient, bodyForUsage] = res.body.tee();
     const latencyMs = Date.now() - started;
     const decoder = new TextDecoder();
 
     async function* events(): AsyncGenerator<StreamEvent> {
-      const reader = res.body!.getReader();
+      const reader = bodyForClient.getReader();
       let buffer = "";
       try {
         while (true) {
@@ -152,12 +164,29 @@ export class OpenAgenticAdapter implements ProviderAdapter {
     // blocking the client stream itself.
     const collected: unknown[] = [];
     const usagePromise: Promise<ProviderUsage | null> = (async () => {
-      for await (const ev of events()) {
-        try {
-          collected.push(JSON.parse(ev.data));
-        } catch {
-          /* non-JSON chunk (e.g. [DONE]) — ignore */
+      const reader = bodyForUsage.getReader();
+      const decoder2 = new TextDecoder();
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder2.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data:")) {
+              try {
+                collected.push(JSON.parse(trimmed.slice(5).trim()));
+              } catch {
+                /* non-JSON chunk (e.g. [DONE]) — ignore */
+              }
+            }
+          }
         }
+      } finally {
+        reader.releaseLock();
       }
       const { usage, source } = extractUsageFromStream(collected);
       return source === "provider" ? usage : null;

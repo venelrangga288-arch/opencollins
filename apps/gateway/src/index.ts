@@ -1,15 +1,15 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { createAdapterFromEnv } from "@dgtlz/provider";
 import { prisma } from "@dgtlz/db";
 import { Redis } from "ioredis";
 import { Queue } from "bullmq";
 import { buildApp } from "./app.js";
 
-export const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6380", {
+const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6380", {
   maxRetriesPerRequest: null,
 });
 
-export const usageQueue = new Queue("usage", {
+const usageQueue = new Queue("usage", {
   connection: redis,
   defaultJobOptions: { attempts: 3, backoff: { type: "exponential", delay: 1000 } },
 });
