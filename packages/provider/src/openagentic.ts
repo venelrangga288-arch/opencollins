@@ -155,6 +155,25 @@ export class OpenAgenticAdapter implements ProviderAdapter {
   }
 
   async stream(req: ChatRequest): Promise<StreamResult> {
+    // Upstream intermittently 502s on stream open (cooldown). Retry the stream
+    // handshake a few times with short backoff before giving up.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.streamOnce(req);
+      } catch (e) {
+        lastError = e;
+        const isRetryable =
+          e instanceof GatewayError &&
+          (e.httpStatus === 502 || e.httpStatus === 503 || e.httpStatus === 429);
+        if (!isRetryable || attempt === 2) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
+    throw lastError;
+  }
+
+  private async streamOnce(req: ChatRequest): Promise<StreamResult> {
     const started = Date.now();
     let res: Response;
     try {
