@@ -13,7 +13,12 @@ interface Summary {
   byDay: Array<{ day: string; requests: number; tokens: number; estimatedCostUsd: number | null }>;
 }
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4101";
+// Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
+// only fall back to the local gateway when browsing from localhost.
+const GATEWAY_URL =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:4101"
+    : "";
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
