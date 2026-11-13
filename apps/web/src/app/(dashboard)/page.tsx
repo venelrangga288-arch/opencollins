@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiBaseUrl } from "@/lib/api-base";
 
 interface Summary {
   totals: {
@@ -19,6 +20,28 @@ const GATEWAY_URL =
   typeof window !== "undefined" && window.location.hostname === "localhost"
     ? "http://localhost:4101"
     : "";
+
+function CopyField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-20 shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{label}</span>
+      <code className="flex-1 truncate rounded-md border border-neutral-200 bg-neutral-100 px-3 py-1.5 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-800">
+        {value}
+      </code>
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+      >
+        {copied ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -89,6 +112,27 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
+
+      <div className="mt-8 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="text-sm font-semibold">API Access</h2>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          Point your OpenAI-compatible SDK or HTTP client here. Get your key on the API Keys page.
+        </p>
+        <div className="mt-4 space-y-2">
+          <CopyField label="Base URL" value={apiBaseUrl()} />
+        </div>
+        <pre className="mt-4 overflow-x-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 font-mono text-xs leading-relaxed text-neutral-200 dark:border-neutral-800">
+{`curl ${apiBaseUrl()}/chat/completions \\
+  -H "Authorization: Bearer dgtlz_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"glm-5.3-flash","messages":[{"role":"user","content":"hello!"}]}'`}
+        </pre>
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          OpenAI SDK: set <code className="font-mono">baseURL</code> to{" "}
+          <code className="font-mono">{apiBaseUrl()}</code> and{" "}
+          <code className="font-mono">apiKey</code> to your <code className="font-mono">dgtlz_live_…</code> key.
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
+import { apiBaseUrl } from "@/lib/api-base";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -17,6 +18,22 @@ interface KeyRecord {
   lastUsedAt: string | null;
   requestCount: number;
   createdAt: string;
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
 }
 
 export default function KeysPage() {
@@ -64,6 +81,26 @@ export default function KeysPage() {
         Keys are stored as HMAC-SHA256 hashes. The full key is shown once at creation.
       </p>
 
+      <div className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            Base URL
+          </span>
+          <code className="rounded-md border border-neutral-200 bg-neutral-100 px-3 py-1.5 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-800">
+            {apiBaseUrl()}
+          </code>
+          <CopyButton value={apiBaseUrl()} />
+          <a
+            href={`${apiBaseUrl()}/models`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+          >
+            List models â†—
+          </a>
+        </div>
+      </div>
+
       <div className="mt-6 flex max-w-md gap-2">
         <input
           value={name}
@@ -83,9 +120,17 @@ export default function KeysPage() {
       {createdKey && (
         <div className="mt-4 max-w-xl rounded-md border border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-950">
           <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
-            Copy your key now — it will not be shown again.
+            Copy your key now â€” it will not be shown again.
           </div>
-          <code className="mt-2 block break-all font-mono text-xs">{createdKey}</code>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="flex-1 break-all rounded border border-blue-200 bg-white px-2 py-1.5 font-mono text-xs dark:border-blue-800 dark:bg-neutral-900">
+              {createdKey}
+            </code>
+            <CopyButton value={createdKey} />
+          </div>
+          <p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+            Use it with Base URL: <code className="font-mono">{apiBaseUrl()}</code>
+          </p>
         </div>
       )}
 
@@ -107,7 +152,7 @@ export default function KeysPage() {
             {keys.map((k) => (
               <tr key={k.id} className="border-b border-neutral-100 dark:border-neutral-800/50">
                 <td className="py-2 pr-4 font-medium">{k.name}</td>
-                <td className="py-2 pr-4 font-mono text-xs text-neutral-500">{k.prefix}…</td>
+                <td className="py-2 pr-4 font-mono text-xs text-neutral-500">{k.prefix}â€¦</td>
                 <td className="py-2 pr-4">
                   <span
                     className={
