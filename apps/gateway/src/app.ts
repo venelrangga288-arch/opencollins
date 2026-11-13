@@ -11,7 +11,7 @@ import { keyRoutes } from "./routes/keys.js";
 import { chatCompletions } from "./routes/chat.js";
 import { modelsRoute, usageRoutes } from "./routes/usage.js";
 import { adminRoutes } from "./routes/admin.js";
-import type { UsageJobData } from "./services/usage-logger.js";
+import { operatorRoutes } from "./routes/operator.js";import type { UsageJobData } from "./services/usage-logger.js";
 
 export interface AppDeps {
   adapter: ProviderAdapter;
@@ -90,6 +90,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(modelsRoute, { deps, prefix: "/api/v1" });
   await app.register(usageRoutes, { deps, prefix: "/api/v1" });
   await app.register(adminRoutes, { deps, prefix: "/api/v1/admin" });
+  await app.register(operatorRoutes, { deps, prefix: "/api/v1/operator" });
 
   return app;
 }
