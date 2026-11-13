@@ -65,40 +65,93 @@ export class OpenAgenticAdapter implements ProviderAdapter {
   }
 
   async chat(req: ChatRequest): Promise<ChatResult> {
-    const started = Date.now();
-    let res: Response;
-    try {
-      res = await fetch(`${this.cfg.baseUrl}${CHAT_PATH}`, {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify({
-          model: req.model,
-          messages: req.messages,
-          ...(req.temperature !== undefined && { temperature: req.temperature }),
-          ...(req.max_tokens !== undefined && { max_tokens: req.max_tokens }),
-          ...req.extra,
-        }),
-        signal: AbortSignal.timeout(this.cfg.timeoutMs),
-      });
-    } catch (e) {
-      if (e instanceof Error && e.name === "TimeoutError") {
-        throw new GatewayError("provider_timeout", 504, "upstream provider timed out");
+    // Upstream occasionally 502s even on the stream path (cooldown). Retry a
+    // few times with short backoff before surfacing the failure.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.chatOnce(req);
+      } catch (e) {
+        lastError = e;
+        const isRetryable =
+          e instanceof GatewayError &&
+          (e.httpStatus === 502 || e.httpStatus === 503 || e.httpStatus === 429);
+        if (!isRetryable || attempt === 2) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       }
-      throw new GatewayError("provider_error", 502, "failed to reach upstream provider");
+    }
+    throw lastError;
+  }
+
+  private async chatOnce(req: ChatRequest): Promise<ChatResult> {
+    const started = Date.now();
+
+    // Upstream's NON-STREAMING path is unreliable (~70% HTTP 502 "no available
+    // provider"), while its STREAMING path is stable. So we always request a
+    // stream from upstream and aggregate it into a complete chat.completion
+    // JSON ourselves. The client still receives a normal non-stream response.
+    const streamResult = await this.stream(req);
+    const chunks: Array<Record<string, unknown>> = [];
+    for await (const ev of streamResult.events) {
+      try {
+        chunks.push(JSON.parse(ev.data));
+      } catch {
+        /* [DONE] or non-JSON — skip */
+      }
+    }
+    const latencyMs = Date.now() - started;
+
+    if (chunks.length === 0) {
+      throw new GatewayError("provider_error", 502, "upstream returned no stream chunks");
     }
 
-    const latencyMs = Date.now() - started;
-    // Upstream quirk: OpenAgentic appends a trailing "data: [DONE]" SSE line to
-    // non-streaming JSON responses. Strip it before parsing.
-    const raw = await res.text();
-    const cleaned = raw.replace(/data:\s*\[DONE\]\s*$/, "").trim();
-    let body: unknown = cleaned;
-    try {
-      body = cleaned ? JSON.parse(cleaned) : null;
-    } catch {
-      // non-JSON body — pass through as string, never silently null
+    // Aggregate chunk deltas into a full chat.completion.
+    let content = "";
+    let reasoning = "";
+    let role = "assistant";
+    let finishReason: string | null = null;
+    let model: string | null = null;
+    let id: string | null = null;
+    let created: number | null = null;
+    let usage: Record<string, unknown> | undefined;
+
+    for (const c of chunks) {
+      const ch = c as {
+        id?: string; created?: number; model?: string;
+        choices?: Array<{ delta?: { content?: string; reasoning_content?: string; role?: string }; finish_reason?: string | null }>;
+        usage?: Record<string, unknown>;
+      };
+      if (ch.id) id = ch.id;
+      if (ch.created) created = ch.created;
+      if (ch.model) model = ch.model;
+      if (ch.usage) usage = ch.usage;
+      const choice = ch.choices?.[0];
+      if (!choice) continue;
+      if (choice.delta?.role) role = choice.delta.role;
+      if (choice.delta?.content) content += choice.delta.content;
+      if (choice.delta?.reasoning_content) reasoning += choice.delta.reasoning_content;
+      if (choice.finish_reason) finishReason = choice.finish_reason;
     }
-    return { httpStatus: res.status, body, latencyMs };
+
+    const message: Record<string, unknown> = { role, content };
+    if (reasoning) message.reasoning_content = reasoning;
+
+    const body = {
+      id: id ?? `dgtlz-agg-${Date.now()}`,
+      object: "chat.completion",
+      created: created ?? Math.floor(Date.now() / 1000),
+      model: model ?? req.model,
+      choices: [
+        {
+          index: 0,
+          message,
+          finish_reason: finishReason ?? "stop",
+        },
+      ],
+      ...(usage && { usage }),
+    };
+
+    return { httpStatus: 200, body, latencyMs };
   }
 
   async stream(req: ChatRequest): Promise<StreamResult> {
