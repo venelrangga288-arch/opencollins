@@ -14,6 +14,7 @@ const GATEWAY_URL =
 const NAV = [
   { href: "/dashboard", label: "Overview", glyph: "◧" },
   { href: "/dashboard/playground", label: "Playground", glyph: "▷" },
+  { href: "/dashboard/earn", label: "Earn", glyph: "◎" },
   { href: "/dashboard/agents", label: "Agents", glyph: "◈" },
   { href: "/dashboard/keys", label: "API Keys", glyph: "⚿" },
   { href: "/dashboard/usage", label: "Usage", glyph: "◫" },
