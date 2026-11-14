@@ -114,11 +114,20 @@ export class OpenAgenticAdapter implements ProviderAdapter {
     let id: string | null = null;
     let created: number | null = null;
     let usage: Record<string, unknown> | undefined;
+    // Tool calls arrive as deltas: {index, id?, function:{name?, arguments?}}.
+    // Accumulate per index, then concatenate the argument fragments.
+    const toolCalls = new Map<number, { id: string; type: "function"; name: string; arguments: string }>();
 
     for (const c of chunks) {
       const ch = c as {
         id?: string; created?: number; model?: string;
-        choices?: Array<{ delta?: { content?: string; reasoning_content?: string; role?: string }; finish_reason?: string | null }>;
+        choices?: Array<{
+          delta?: {
+            content?: string; reasoning_content?: string; role?: string;
+            tool_calls?: Array<{ index?: number; id?: string; type?: string; function?: { name?: string; arguments?: string } }>;
+          };
+          finish_reason?: string | null;
+        }>;
         usage?: Record<string, unknown>;
       };
       if (ch.id) id = ch.id;
@@ -131,10 +140,28 @@ export class OpenAgenticAdapter implements ProviderAdapter {
       if (choice.delta?.content) content += choice.delta.content;
       if (choice.delta?.reasoning_content) reasoning += choice.delta.reasoning_content;
       if (choice.finish_reason) finishReason = choice.finish_reason;
+      for (const tc of choice.delta?.tool_calls ?? []) {
+        const idx = tc.index ?? 0;
+        const acc = toolCalls.get(idx) ?? { id: "", type: "function" as const, name: "", arguments: "" };
+        if (tc.id) acc.id = tc.id;
+        if (tc.type) acc.type = tc.type as "function";
+        if (tc.function?.name) acc.name += tc.function.name;
+        if (tc.function?.arguments) acc.arguments += tc.function.arguments;
+        toolCalls.set(idx, acc);
+      }
     }
 
-    const message: Record<string, unknown> = { role, content };
+    const message: Record<string, unknown> = { role, content: content || null };
     if (reasoning) message.reasoning_content = reasoning;
+    if (toolCalls.size > 0) {
+      message.tool_calls = [...toolCalls.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([, tc]) => ({
+          id: tc.id || `call_${Date.now()}_${tc.name || "tool"}`,
+          type: "function",
+          function: { name: tc.name, arguments: tc.arguments || "{}" },
+        }));
+    }
 
     const body = {
       id: id ?? `dgtlz-agg-${Date.now()}`,

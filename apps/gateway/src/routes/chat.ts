@@ -103,7 +103,10 @@ export const chatCompletions: FastifyPluginAsync<{ deps: AppDeps }> = async (app
     };
 
     if (body.stream) {
-      const streamResult = await adapter.stream({ ...body, extra: {} } as never);
+      // Pass through OpenAI-compatible extras (tools, tool_choice, response_format,
+      // top_p, seed, etc.) — schema is .passthrough() so they survive parsing.
+      const { stream: _s, model: _m, messages: _ms, temperature: _t, max_tokens: _mt, ...extras } = body;
+      const streamResult = await adapter.stream({ ...body, extra: extras } as never);
       reply.raw.writeHead(200, {
         "content-type": "text/event-stream",
         "cache-control": "no-cache",
@@ -130,7 +133,8 @@ export const chatCompletions: FastifyPluginAsync<{ deps: AppDeps }> = async (app
     }
 
     // Non-streaming
-    const result = await adapter.chat({ ...body, extra: {} } as never);
+    const { stream: _s2, model: _m2, messages: _ms2, temperature: _t2, max_tokens: _mt2, ...extras2 } = body;
+    const result = await adapter.chat({ ...body, extra: extras2 } as never);
     if (result.httpStatus >= 400) {
       // Record the failure, then surface provider error compatibly.
       await usageQueue.add("record", { ...job, httpStatus: result.httpStatus, responseBody: result.body, latencyMs: result.latencyMs });
