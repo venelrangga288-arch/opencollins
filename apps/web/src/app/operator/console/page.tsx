@@ -67,6 +67,11 @@ interface UsageModel { model: string; requests: number; totalTokens: number }
 const TABS = ["Overview", "Users", "API Keys", "Usage", "Test Chat", "Requests", "Audit"] as const;
 type Tab = (typeof TABS)[number];
 
+const TAB_GLYPH: Record<Tab, string> = {
+  Overview: "◧", Users: "◇", "API Keys": "⚿", Usage: "◫",
+  "Test Chat": "▷", Requests: "⇄", Audit: "⌗",
+};
+
 export default function OperatorConsolePage() {
   const token = useOperatorToken();
   const [tab, setTab] = useState<Tab>("Overview");
@@ -83,8 +88,8 @@ export default function OperatorConsolePage() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-950 text-sm text-neutral-500">
-        Redirecting to login…
+      <div className="flex min-h-screen items-center justify-center bg-obsidian-950 font-mono text-xs text-haze-haze">
+        redirecting to login…
       </div>
     );
   }
@@ -121,92 +126,148 @@ export default function OperatorConsolePage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      <header className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
-        <div className="text-sm font-semibold">
-          DGT.LZ <span className="text-blue-500">Operator Console</span> — full control
-        </div>
-        <button onClick={logout} className="text-xs text-neutral-400 hover:text-red-400">Logout</button>
-      </header>
-
-      {notice && (
-        <div className={`mx-6 mt-3 rounded-md px-4 py-2 text-sm ${notice.startsWith("ERROR") ? "bg-red-950 text-red-300" : "bg-green-950 text-green-300"}`}>
-          {notice}
-        </div>
-      )}
-
-      <nav className="flex flex-wrap gap-1 border-b border-neutral-800 px-6">
+    <div className="flex h-screen overflow-hidden bg-obsidian-950 text-haze-bright">
+      {/* ── Rail ────────────────────────────────────────── */}
+      <div className="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-obsidian-600/40 bg-obsidian-900 py-3">
+        <div className="rail-btn rail-on font-display text-sm font-extrabold text-white">D</div>
+        <div className="mx-2 my-1 h-px bg-obsidian-600/50" />
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm transition-colors ${
-              tab === t ? "border-b-2 border-blue-500 text-white" : "text-neutral-500 hover:text-neutral-300"
-            }`}
+            title={t}
+            className={`rail-btn ${tab === t ? "rail-on" : ""}`}
           >
-            {t}
+            {TAB_GLYPH[t]}
           </button>
         ))}
-      </nav>
+        <div className="flex-1" />
+        <button onClick={logout} className="rail-btn" title="Logout">
+          ⏻
+        </button>
+      </div>
 
-      <main className="p-6">
-        {tab === "Overview" && (
-          <>
-            {stats.error && <div className="text-sm text-amber-500">Failed to load: {stats.error}</div>}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-              <Card label="Users" value={stats.data?.users} />
-              <Card label="Active keys" value={stats.data?.activeKeys} />
-              <Card label="Requests 24h" value={stats.data?.requests24h} />
-              <Card label="Errors 24h" value={stats.data?.errors24h} />
-              <Card label="Avg latency" value={stats.data ? `${stats.data.avgLatencyMs} ms` : undefined} />
-              <Card label="Tokens 24h" value={stats.data?.tokens24h?.toLocaleString()} />
+      {/* ── Sidebar ─────────────────────────────────────── */}
+      <div className="hidden w-56 shrink-0 flex-col border-r border-obsidian-600/40 bg-obsidian-850 md:flex">
+        <div className="px-4 py-4">
+          <div className="font-display text-sm font-bold text-haze-white">
+            DGT.LZ <span className="text-glint">Operator</span>
+          </div>
+          <div className="mt-0.5 font-mono text-[10px] text-haze-haze">full control · console</div>
+        </div>
+        <div className="px-4 pb-2 font-mono text-[10px] uppercase tracking-widest text-haze-haze">
+          Console
+        </div>
+        <nav className="space-y-0.5 px-2">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`side-btn ${tab === t ? "bg-obsidian-700 text-white" : ""}`}
+            >
+              <span className="w-4 text-center text-haze-haze">{TAB_GLYPH[t]}</span>
+              {t}
+            </button>
+          ))}
+        </nav>
+        <div className="mt-auto space-y-2 p-3">
+          <div className="card p-3">
+            <div className="stat-label">Upstream</div>
+            <UpstreamDot token={token} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Content ─────────────────────────────────────── */}
+      <main className="ide-scroll flex-1 overflow-y-auto">
+        {/* tab bar */}
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-obsidian-600/40 bg-obsidian-950/95 px-4 py-2 backdrop-blur">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`tab ${tab === t ? "tab-on" : ""}`}
+            >
+              {t}
+            </button>
+          ))}
+          <div className="flex-1" />
+          {notice && (
+            <div
+              className={`rounded-md px-3 py-1.5 font-mono text-[11px] ${
+                notice.startsWith("ERROR") ? "bg-red-500/15 text-red-300" : "bg-emerald-500/15 text-emerald-300"
+              }`}
+            >
+              {notice}
             </div>
-            <ProviderHealth token={token} />
-          </>
-        )}
+          )}
+        </div>
 
-        {tab === "Users" && (
-          <UsersTab token={token} users={users} onToggle={toggleUser} />
-        )}
+        <div className="mx-auto max-w-5xl px-6 py-6">
+          {tab === "Overview" && (
+            <>
+              {stats.error && <div className="text-[13px] text-amber-300">Failed to load: {stats.error}</div>}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                <Card label="Users" value={stats.data?.users} />
+                <Card label="Active keys" value={stats.data?.activeKeys} />
+                <Card label="Requests 24h" value={stats.data?.requests24h} />
+                <Card label="Errors 24h" value={stats.data?.errors24h} />
+                <Card label="Avg latency" value={stats.data ? `${stats.data.avgLatencyMs} ms` : undefined} />
+                <Card label="Tokens 24h" value={stats.data?.tokens24h?.toLocaleString()} />
+              </div>
+              <ProviderHealthCard token={token} />
+            </>
+          )}
 
-        {tab === "API Keys" && (
-          <KeysTab token={token} keys={keys} users={users} onRevoke={revokeKey} onCreated={(k) => { setCreatedKey(k); keys.reload(); }} createdKey={createdKey} clearCreated={() => setCreatedKey(null)} />
-        )}
+          {tab === "Users" && <UsersTab token={token} users={users} onToggle={toggleUser} />}
 
-        {tab === "Usage" && (
-          <UsageTab usage={usage} />
-        )}
+          {tab === "API Keys" && (
+            <KeysTab
+              token={token}
+              keys={keys}
+              users={users}
+              onRevoke={revokeKey}
+              onCreated={(k) => { setCreatedKey(k); keys.reload(); }}
+              createdKey={createdKey}
+              clearCreated={() => setCreatedKey(null)}
+            />
+          )}
 
-        {tab === "Test Chat" && (
-          <TestChatTab token={token} models={models.data?.data?.map((m) => m.id) ?? []} />
-        )}
+          {tab === "Usage" && <UsageTab usage={usage} />}
 
-        {tab === "Requests" && (
-          <Table
-            headers={["Time", "User", "Model", "Status", "HTTP", "Latency"]}
-            rows={reqs.data?.data ?? []}
-            render={(r: ReqRow) => [
-              new Date(r.createdAt).toLocaleTimeString(),
-              r.user?.email ?? "—", r.model,
-              <Badge key={r.id} value={r.status} />,
-              r.httpStatus, `${r.latencyMs} ms`,
-            ]}
-          />
-        )}
+          {tab === "Test Chat" && (
+            <TestChatTab token={token} models={models.data?.data?.map((m) => m.id) ?? []} />
+          )}
 
-        {tab === "Audit" && (
-          <Table
-            headers={["Time", "Action", "Target"]}
-            rows={audit.data?.data ?? []}
-            render={(a: AuditRow) => [new Date(a.createdAt).toLocaleString(), a.action, a.target ?? "—"]}
-          />
-        )}
+          {tab === "Requests" && (
+            <Table
+              headers={["Time", "User", "Model", "Status", "HTTP", "Latency"]}
+              rows={reqs.data?.data ?? []}
+              render={(r: ReqRow) => [
+                new Date(r.createdAt).toLocaleTimeString(),
+                r.user?.email ?? "—",
+                <span key={`m${r.id}`} className="font-mono text-xs text-glint">{r.model}</span>,
+                <Badge key={r.id} value={r.status} />,
+                r.httpStatus,
+                `${r.latencyMs} ms`,
+              ]}
+            />
+          )}
+
+          {tab === "Audit" && (
+            <Table
+              headers={["Time", "Action", "Target"]}
+              rows={audit.data?.data ?? []}
+              render={(a: AuditRow) => [new Date(a.createdAt).toLocaleString(), a.action, a.target ?? "—"]}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
 }
 
-function ProviderHealth({ token }: { token: string }) {
+function UpstreamDot({ token }: { token: string }) {
   const [health, setHealth] = useState<{ provider: string; ok?: boolean; latencyMs?: number; error?: string } | null>(null);
   useEffect(() => {
     fetch(`${GATEWAY_URL}/api/v1/operator/provider/health`, { headers: { Authorization: `Bearer ${token}` } })
@@ -215,13 +276,42 @@ function ProviderHealth({ token }: { token: string }) {
       .catch(() => setHealth({ provider: "unknown", error: "unreachable" }));
   }, [token]);
   return (
-    <div className="mt-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">Upstream provider</div>
-      <div className="mt-2 flex items-center gap-3">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${health?.ok ? "bg-green-500" : health === null ? "bg-neutral-600" : "bg-red-500"}`} />
-        <span className="text-sm">{health?.provider ?? "loading…"}</span>
-        {health?.latencyMs !== undefined && <span className="text-xs text-neutral-500">{health.latencyMs} ms</span>}
-        {health?.error && <span className="text-xs text-red-400">{health.error}</span>}
+    <div className="mt-2 flex items-center gap-2">
+      <span
+        className={`inline-block h-2 w-2 rounded-full ${
+          health?.ok ? "bg-emerald-400" : health === null ? "bg-obsidian-400" : "bg-red-400"
+        }`}
+      />
+      <span className="font-mono text-[11px] text-haze-lite">{health?.provider ?? "…"}</span>
+      {health?.latencyMs !== undefined && (
+        <span className="font-mono text-[10px] text-haze-haze">{health.latencyMs}ms</span>
+      )}
+    </div>
+  );
+}
+
+function ProviderHealthCard({ token }: { token: string }) {
+  const [health, setHealth] = useState<{ provider: string; ok?: boolean; latencyMs?: number; error?: string } | null>(null);
+  useEffect(() => {
+    fetch(`${GATEWAY_URL}/api/v1/operator/provider/health`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then(setHealth)
+      .catch(() => setHealth({ provider: "unknown", error: "unreachable" }));
+  }, [token]);
+  return (
+    <div className="card mt-6 p-4">
+      <div className="stat-label">Upstream provider</div>
+      <div className="mt-3 flex items-center gap-3">
+        <span
+          className={`inline-block h-2.5 w-2.5 rounded-full ${
+            health?.ok ? "bg-emerald-400" : health === null ? "bg-obsidian-400" : "bg-red-400"
+          }`}
+        />
+        <span className="text-[13px] text-haze-white">{health?.provider ?? "loading…"}</span>
+        {health?.latencyMs !== undefined && (
+          <span className="font-mono text-[11px] text-haze-haze">{health.latencyMs} ms</span>
+        )}
+        {health?.error && <span className="font-mono text-[11px] text-red-400">{health.error}</span>}
       </div>
     </div>
   );
@@ -239,13 +329,13 @@ function UsersTab({ token, users, onToggle }: {
 
   return (
     <>
-      <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h3 className="text-sm font-semibold">Create user</h3>
+      <div className="card p-4">
+        <div className="font-display text-sm font-bold text-haze-white">Create user</div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@domain.com" className="w-56 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm" />
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className="w-44 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 8)" type="password" className="w-44 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm" />
-          <label className="flex items-center gap-2 text-xs text-neutral-400">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@domain.com" className="input-dark w-56" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className="input-dark w-44" />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 8)" type="password" className="input-dark w-44" />
+          <label className="flex items-center gap-2 font-mono text-[11px] text-haze-haze">
             <input type="checkbox" checked={asAdmin} onChange={(e) => setAsAdmin(e.target.checked)} /> as ADMIN
           </label>
           <button
@@ -259,28 +349,32 @@ function UsersTab({ token, users, onToggle }: {
               } catch (e) { alert((e as Error).message); }
             }}
             disabled={!email || password.length < 8}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="btn-white disabled:opacity-40"
           >
             Create user
           </button>
         </div>
       </div>
-      <Table
-        headers={["Email", "Name", "Role", "Status", "Created", ""]}
-        rows={users.data?.data ?? []}
-        render={(u: UserRow) => [
-          u.email, u.name ?? "—", u.role,
-          <Badge key={u.id} value={u.status} />,
-          new Date(u.createdAt).toLocaleDateString(),
-          <button
-            key={u.id}
-            onClick={() => onToggle(u.id, u.status)}
-            className={u.status === "ACTIVE" ? "text-xs text-red-400 hover:underline" : "text-xs text-green-400 hover:underline"}
-          >
-            {u.status === "ACTIVE" ? "Suspend" : "Reactivate"}
-          </button>,
-        ]}
-      />
+      <div className="mt-5">
+        <Table
+          headers={["Email", "Name", "Role", "Status", "Created", ""]}
+          rows={users.data?.data ?? []}
+          render={(u: UserRow) => [
+            <span key={`e${u.id}`} className="text-haze-white">{u.email}</span>,
+            u.name ?? "—",
+            <span key={`r${u.id}`} className="font-mono text-xs text-glint">{u.role}</span>,
+            <Badge key={u.id} value={u.status} />,
+            new Date(u.createdAt).toLocaleDateString(),
+            <button
+              key={`b${u.id}`}
+              onClick={() => onToggle(u.id, u.status)}
+              className={u.status === "ACTIVE" ? "text-xs text-red-400 hover:underline" : "text-xs text-emerald-400 hover:underline"}
+            >
+              {u.status === "ACTIVE" ? "Suspend" : "Reactivate"}
+            </button>,
+          ]}
+        />
+      </div>
     </>
   );
 }
@@ -300,28 +394,25 @@ function KeysTab({ token, keys, users, onRevoke, onCreated, createdKey, clearCre
   return (
     <>
       {createdKey && (
-        <div className="mb-6 max-w-2xl rounded-md border border-blue-500 bg-blue-950 p-4">
-          <div className="text-sm font-medium text-blue-300">Copy this key now — shown only once:</div>
+        <div className="mb-5 max-w-2xl rounded-lg border border-glint/50 bg-glint/5 p-4">
+          <div className="text-[13px] font-semibold text-glint">Copy this key now — shown only once:</div>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 break-all rounded border border-blue-800 bg-neutral-900 px-2 py-1.5 font-mono text-xs">{createdKey}</code>
-            <button
-              onClick={() => navigator.clipboard.writeText(createdKey)}
-              className="rounded border border-neutral-600 px-3 py-1.5 text-xs hover:bg-neutral-800"
-            >Copy</button>
-            <button onClick={clearCreated} className="text-xs text-neutral-500 hover:text-neutral-300">✕</button>
+            <code className="inline-code flex-1 break-all">{createdKey}</code>
+            <button onClick={() => navigator.clipboard.writeText(createdKey)} className="btn-white">Copy</button>
+            <button onClick={clearCreated} className="text-xs text-haze-haze hover:text-white">✕</button>
           </div>
         </div>
       )}
-      <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h3 className="text-sm font-semibold">Create API key for a user</h3>
+      <div className="card p-4">
+        <div className="font-display text-sm font-bold text-haze-white">Create API key for a user</div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="w-60 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm">
+          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="input-dark w-60">
             <option value="">— select user —</option>
             {(users.data?.data ?? []).map((u) => (
               <option key={u.id} value={u.id}>{u.email}</option>
             ))}
           </select>
-          <input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Key name" className="w-48 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm" />
+          <input value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Key name" className="input-dark w-48" />
           <button
             onClick={async () => {
               try {
@@ -331,26 +422,29 @@ function KeysTab({ token, keys, users, onRevoke, onCreated, createdKey, clearCre
               } catch (e) { alert((e as Error).message); }
             }}
             disabled={!userId || !keyName}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="btn-white disabled:opacity-40"
           >
             Create key
           </button>
         </div>
       </div>
-      <Table
-        headers={["Owner", "Name", "Key", "Status", "Requests", "Last used", ""]}
-        rows={keys.data?.data ?? []}
-        render={(k: KeyRow) => [
-          k.user?.email ?? "—", k.name,
-          <code key={k.id} className="font-mono text-xs text-neutral-400">{k.prefix}…</code>,
-          <Badge key={k.id} value={k.status} />,
-          k.requestCount,
-          k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "never",
-          k.status === "ACTIVE" ? (
-            <button key={k.id} onClick={() => onRevoke(k.id)} className="text-xs text-red-400 hover:underline">Revoke</button>
-          ) : "",
-        ]}
-      />
+      <div className="mt-5">
+        <Table
+          headers={["Owner", "Name", "Key", "Status", "Requests", "Last used", ""]}
+          rows={keys.data?.data ?? []}
+          render={(k: KeyRow) => [
+            k.user?.email ?? "—",
+            <span key={`n${k.id}`} className="text-haze-white">{k.name}</span>,
+            <code key={k.id} className="font-mono text-xs text-haze-haze">{k.prefix}…</code>,
+            <Badge key={`s${k.id}`} value={k.status} />,
+            k.requestCount,
+            k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "never",
+            k.status === "ACTIVE" ? (
+              <button key={`b${k.id}`} onClick={() => onRevoke(k.id)} className="text-xs text-red-400 hover:underline">Revoke</button>
+            ) : "",
+          ]}
+        />
+      </div>
     </>
   );
 }
@@ -358,17 +452,27 @@ function KeysTab({ token, keys, users, onRevoke, onCreated, createdKey, clearCre
 function UsageTab({ usage }: { usage: ReturnType<typeof useApi<{ byUser: UsageUser[]; byModel: UsageModel[]; days: number }>> }) {
   return (
     <>
-      <h3 className="mb-3 text-sm font-semibold">Per user — last {usage.data?.days ?? 7} days</h3>
+      <div className="stat-label mb-3">Per user — last {usage.data?.days ?? 7} days</div>
       <Table
         headers={["Email", "Requests", "Input tokens", "Output tokens", "Total tokens"]}
         rows={usage.data?.byUser ?? []}
-        render={(u: UsageUser) => [u.email, u.requests, u.inputTokens.toLocaleString(), u.outputTokens.toLocaleString(), u.totalTokens.toLocaleString()]}
+        render={(u: UsageUser) => [
+          u.email,
+          u.requests,
+          u.inputTokens.toLocaleString(),
+          u.outputTokens.toLocaleString(),
+          <span key={`t${u.userId}`} className="text-glint">{u.totalTokens.toLocaleString()}</span>,
+        ]}
       />
-      <h3 className="mb-3 mt-8 text-sm font-semibold">Per model</h3>
+      <div className="stat-label mb-3 mt-8">Per model</div>
       <Table
         headers={["Model", "Requests", "Total tokens"]}
         rows={usage.data?.byModel ?? []}
-        render={(m: UsageModel) => [m.model, m.requests, m.totalTokens.toLocaleString()]}
+        render={(m: UsageModel) => [
+          <span key={`m${m.model}`} className="font-mono text-xs text-glint">{m.model || "—"}</span>,
+          m.requests,
+          m.totalTokens.toLocaleString(),
+        ]}
       />
     </>
   );
@@ -383,13 +487,15 @@ function TestChatTab({ token, models }: { token: string; models: string[] }) {
 
   return (
     <div className="max-w-2xl">
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h3 className="text-sm font-semibold">Live test chat (bypasses keys &amp; quota)</h3>
+      <div className="card p-4">
+        <div className="font-display text-sm font-bold text-haze-white">
+          Live test chat <span className="font-sans font-normal text-haze-haze">(bypasses keys &amp; quota)</span>
+        </div>
         <div className="mt-3 space-y-3">
-          <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm">
+          <select value={model} onChange={(e) => setModel(e.target.value)} className="input-dark w-full">
             {models.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm" />
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className="input-dark w-full resize-none font-mono text-[13px]" />
           <button
             onClick={async () => {
               setBusy(true); setErr(null); setResult(null);
@@ -400,17 +506,25 @@ function TestChatTab({ token, models }: { token: string; models: string[] }) {
               setBusy(false);
             }}
             disabled={busy}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="btn-white disabled:opacity-40"
           >
-            {busy ? "Testing…" : "Send test"}
+            {busy ? (
+              <>
+                <span className="spin" /> Testing…
+              </>
+            ) : (
+              <>Send test ▸</>
+            )}
           </button>
         </div>
       </div>
-      {err && <div className="mt-4 text-sm text-red-400">{err}</div>}
+      {err && <div className="mt-4 text-[13px] text-red-400">{err}</div>}
       {result && (
-        <div className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-          <div className="text-xs text-neutral-500">HTTP {result.httpStatus} · {result.latencyMs} ms · usage: {JSON.stringify(result.usage)}</div>
-          <pre className="mt-2 whitespace-pre-wrap text-sm">{result.content ?? "(empty)"}</pre>
+        <div className="card mt-4 p-4">
+          <div className="font-mono text-[10px] text-haze-haze">
+            HTTP {result.httpStatus} · {result.latencyMs} ms · {JSON.stringify(result.usage)}
+          </div>
+          <pre className="mt-2 whitespace-pre-wrap text-[13px] text-haze-bright">{result.content ?? "(empty)"}</pre>
         </div>
       )}
     </div>
@@ -419,9 +533,9 @@ function TestChatTab({ token, models }: { token: string; models: string[] }) {
 
 function Card({ label, value }: { label: string; value?: number | string }) {
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums">{value ?? "—"}</div>
+    <div className="stat-card">
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value ?? "—"}</div>
     </div>
   );
 }
@@ -429,32 +543,38 @@ function Card({ label, value }: { label: string; value?: number | string }) {
 function Badge({ value }: { value: string }) {
   const color =
     value === "ACTIVE" || value === "SUCCESS"
-      ? "bg-green-900/50 text-green-400"
-      : value === "SUSPENDED" || value === "REVOKED"
-        ? "bg-red-900/50 text-red-400"
-        : "bg-neutral-800 text-neutral-400";
-  return <span className={`rounded-full px-2 py-0.5 text-xs ${color}`}>{value}</span>;
+      ? "bg-emerald-500/15 text-emerald-400"
+      : value === "SUSPENDED" || value === "REVOKED" || value === "FAILED"
+        ? "bg-red-500/15 text-red-400"
+        : "bg-obsidian-600 text-haze-haze";
+  return (
+    <span className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${color}`}>
+      {value}
+    </span>
+  );
 }
 
 function Table<T>({ headers, rows, render }: {
   headers: string[]; rows: T[]; render: (row: T) => React.ReactNode[];
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="card overflow-x-auto">
+      <table className="w-full text-[13px]">
         <thead>
-          <tr className="border-b border-neutral-800 text-left text-xs uppercase tracking-wide text-neutral-500">
-            {headers.map((h) => <th key={h} className="py-2 pr-4">{h}</th>)}
+          <tr className="tbl-head">
+            {headers.map((h) => <th key={h} className="px-4 py-3">{h}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className="border-b border-neutral-800/50">
-              {render(row).map((cell, i) => <td key={i} className="py-2 pr-4">{cell}</td>)}
+            <tr key={ri} className="tbl-row">
+              {render(row).map((cell, i) => <td key={i} className="px-4 py-2.5">{cell}</td>)}
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan={headers.length} className="py-6 text-center text-neutral-500">No data.</td></tr>
+            <tr>
+              <td colSpan={headers.length} className="px-4 py-8 text-center text-haze-haze">No data.</td>
+            </tr>
           )}
         </tbody>
       </table>

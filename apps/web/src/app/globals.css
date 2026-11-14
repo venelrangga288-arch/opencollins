@@ -1,7 +1,80 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light dark;
+}
+
+/* â”€â”€ Collins workstation component layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+@layer components {
+  .rail-btn {
+    @apply flex h-9 w-9 items-center justify-center rounded-xl text-[#8a8a86] transition-colors hover:bg-[#1c1c1a] hover:text-white;
+  }
+  .rail-on {
+    @apply bg-[#292927] text-white hover:bg-[#292927];
+  }
+  .side-btn {
+    @apply flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-[13px] font-medium text-[#d4d4d0] transition-colors hover:bg-[#222220] hover:text-white;
+  }
+  .card {
+    @apply rounded-lg border border-[#262624]/60 bg-[#141413];
+  }
+  .chip {
+    @apply rounded border border-[#333330] bg-[#262624] px-2.5 py-0.5 text-[11px] text-[#c8c8c4] transition-colors hover:bg-[#32322f];
+  }
+  .btn-white {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-white px-3 py-1.5 text-[11.5px] font-semibold text-[#0f0f0e] transition-colors hover:bg-[#e8e8e4];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-[#333330] bg-[#141413] px-2.5 py-1.5 text-[11px] text-[#c8c8c4] transition-colors hover:bg-[#1b1b19] hover:text-white;
+  }
+  .inline-code {
+    @apply rounded border border-[#333330] bg-[#262624] px-1.5 py-0.5 font-mono text-[12.5px] text-[#e6e6e3];
+  }
+  .stat-card {
+    @apply rounded-lg border border-[#262624]/60 bg-[#141413] p-4;
+  }
+  .stat-label {
+    @apply font-mono text-[10px] uppercase tracking-widest text-[#8a8a86];
+  }
+  .stat-value {
+    @apply mt-2 text-2xl font-semibold tabular-nums text-[#f4f4f2];
+  }
+  .tbl-head {
+    @apply border-b border-[#333330]/60 text-left font-mono text-[10px] uppercase tracking-widest text-[#8a8a86];
+  }
+  .tbl-row {
+    @apply border-b border-[#262624]/30 transition-colors hover:bg-[#171716];
+  }
+  .input-dark {
+    @apply rounded-md border border-[#333330] bg-[#1c1c1a] px-3 py-2 text-sm text-[#e6e6e3] outline-none transition-colors focus:border-[#67dcf2];
+  }
+}
+
+/* â”€â”€ Scrollbars (IDE-style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.ide-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.ide-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ide-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ide-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+.ide-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+::selection {
+  background: #1fa8f5;
+  color: #041024;
 }

@@ -62,52 +62,57 @@ export default function PlaygroundPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">API Playground</h1>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Test requests through the gateway. Upstream credentials never reach the browser — the server proxies everything.
-      </p>
-
-      <div className="mt-6 max-w-xl space-y-4">
+      <div className="flex items-center justify-between">
         <div>
-          <label className="text-sm font-medium">Model</label>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-          >
-            {models.length === 0 && <option value="">(sign in and ensure gateway is running)</option>}
-            {models.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-haze-white">Playground</h1>
+          <p className="mt-1 text-[13px] text-haze-haze">
+            Test requests through the gateway · upstream credentials never reach the browser
+          </p>
         </div>
-        <div>
-          <label className="text-sm font-medium">Prompt</label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-          />
-        </div>
-        <button
-          onClick={send}
-          disabled={loading || !model}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-        >
-          {loading ? "Sending…" : "Send request"}
-        </button>
+        <select value={model} onChange={(e) => setModel(e.target.value)} className="input-dark w-56">
+          {models.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
 
-      {error && <div className="mt-6 text-sm text-red-600">{error}</div>}
+      <div className="mt-6 card p-5">
+        <div className="stat-label">Prompt</div>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={3}
+          className="input-dark mt-2 w-full resize-none font-mono text-[13px]"
+        />
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            onClick={send}
+            disabled={loading || !model}
+            className="btn-white disabled:opacity-40"
+          >
+            {loading ? (
+              <>
+                <span className="spin" /> Sending…
+              </>
+            ) : (
+              <>Send request ▸</>
+            )}
+          </button>
+          <span className="font-mono text-[10px] text-haze-haze">@ model · / commands · enter send</span>
+        </div>
+      </div>
+
+      {error && <div className="mt-5 text-[13px] text-red-400">{error}</div>}
 
       {result && (
-        <div className="mt-6 max-w-3xl space-y-3">
-          <div className="flex gap-6 text-sm text-neutral-500">
-            <span>Latency: <strong className="text-neutral-900 dark:text-neutral-100">{result.latencyMs} ms</strong></span>
-            <span>Usage: <code className="font-mono text-xs">{result.usage}</code></span>
+        <div className="mt-5 space-y-3">
+          <div className="flex gap-6 font-mono text-[11px] text-haze-haze">
+            <span>
+              latency <strong className="text-glint">{result.latencyMs} ms</strong>
+            </span>
+            <span className="truncate">usage {result.usage}</span>
           </div>
-          <pre className="overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs dark:border-neutral-800 dark:bg-neutral-900">
+          <pre className="ide-scroll card max-h-96 overflow-auto p-4 font-mono text-[12px] leading-relaxed text-haze-bright">
             {result.body}
           </pre>
         </div>

@@ -38,33 +38,35 @@ export default function OperatorLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-4">
-      <form onSubmit={login} className="w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900 p-8">
+    <div className="flex min-h-screen items-center justify-center bg-obsidian-950 px-4">
+      <form onSubmit={login} className="card w-full max-w-sm p-8">
         <div className="mb-6 text-center">
-          <div className="text-lg font-semibold text-white">
-            DGT.LZ <span className="text-blue-500">Operator</span>
+          <div className="font-display text-lg font-extrabold text-haze-white">
+            DGT.LZ <span className="text-glint">Operator</span>
           </div>
-          <div className="mt-1 text-xs text-neutral-500">Restricted console access</div>
+          <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-haze-haze">
+            restricted console access
+          </div>
         </div>
-        <label className="block text-sm text-neutral-400">Username</label>
+        <label className="block font-mono text-[10px] uppercase tracking-widest text-haze-haze">Username</label>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+          className="input-dark mt-1.5 w-full"
           autoFocus
         />
-        <label className="mt-4 block text-sm text-neutral-400">Password</label>
+        <label className="mt-4 block font-mono text-[10px] uppercase tracking-widest text-haze-haze">Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+          className="input-dark mt-1.5 w-full"
         />
-        {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+        {error && <div className="mt-4 text-[13px] text-red-400">{error}</div>}
         <button
           type="submit"
           disabled={loading || !username || !password}
-          className="mt-6 w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+          className="btn-white mt-6 w-full justify-center disabled:opacity-40"
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>
