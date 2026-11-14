@@ -24,3 +24,4 @@ postgres-data/
 Thumbs.db
 *.log
 .turbo/
+collins-site/
