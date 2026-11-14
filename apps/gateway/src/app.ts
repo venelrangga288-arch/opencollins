@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+﻿import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import type { ProviderAdapter } from "@dgtlz/provider";
@@ -12,7 +12,9 @@ import { keyRoutes } from "./routes/keys.js";
 import { chatCompletions } from "./routes/chat.js";
 import { modelsRoute, usageRoutes } from "./routes/usage.js";
 import { adminRoutes } from "./routes/admin.js";
-import { operatorRoutes } from "./routes/operator.js";import type { UsageJobData } from "./services/usage-logger.js";
+import { operatorRoutes } from "./routes/operator.js";
+import { creditRoutes } from "./routes/credits.js";
+import type { UsageJobData } from "./services/usage-logger.js";
 
 export interface AppDeps {
   adapter: ProviderAdapter;
@@ -63,7 +65,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
   await app.register((await import("@fastify/cookie")).default);
 
-  // Some clients POST without a body (logout, cancel, …) and browsers/proxies
+  // Some clients POST without a body (logout, cancel, â€¦) and browsers/proxies
   // may attach a non-JSON content type. Accept those instead of 415-ing.
   for (const type of ["text/plain", "application/x-www-form-urlencoded", "application/octet-stream"]) {
     app.addContentTypeParser(type, { parseAs: "string" }, (_req, body, done) => {
@@ -93,7 +95,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       reply.status(400).send(toErrorBody("invalid_request", err.message, requestId));
       return;
     }
-    // Fastify content-type/body errors carry a 4xx status — surface them as
+    // Fastify content-type/body errors carry a 4xx status â€” surface them as
     // client errors instead of masking them as 500 internal errors.
     const statusCode = (err as { statusCode?: number }).statusCode;
     if (statusCode && statusCode >= 400 && statusCode < 500) {
@@ -114,6 +116,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(usageRoutes, { deps, prefix: "/api/v1" });
   await app.register(adminRoutes, { deps, prefix: "/api/v1/admin" });
   await app.register(operatorRoutes, { deps, prefix: "/api/v1/operator" });
+  await app.register(creditRoutes, { deps, prefix: "/api/v1/credits" });
 
   return app;
 }

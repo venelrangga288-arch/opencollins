@@ -9,6 +9,15 @@ import { z } from "zod";
 import { GatewayError } from "@dgtlz/core";
 import type { AppDeps } from "../app.js";
 import { runAgent } from "../services/agent-runner.js";
+import {
+  adjustBalance,
+  getAllowanceTokens,
+  getBalanceRupiah,
+  listLedger,
+  loadConfig,
+  toConfigView,
+  DEFAULT_CONFIG,
+} from "../services/credits.js";
 
 const LoginSchema = z.object({
   username: z.string().min(1).max(64),
@@ -372,4 +381,229 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     await prisma.auditLog.create({ data: { actorId: "operator", action: "agent.cancelled", target: `agent:${id}` } });
     return { ok: true };
   });
+  // -------------------------------------------------------------------------
+  // Credits, ads and creative management
+  // -------------------------------------------------------------------------
+
+  /** Global ads/credits knobs. Everything here is runtime-editable. */
+  app.get("/credits/config", async (req) => {
+    verifyOperator(req, jwtSecret);
+    return loadConfig(prisma);
+  });
+
+  const CreditConfigSchema = z.object({
+    tokensPerRupiah: z.number().int().min(1).max(1_000_000).optional(),
+    minConvertRupiah: z.number().int().min(0).max(10_000_000).optional(),
+    dailyAdsPerUser: z.number().int().min(0).max(1000).optional(),
+    dailyRewardCapRupiah: z.number().int().min(0).max(100_000_000).optional(),
+    weeklyTokenCap: z.number().int().min(0).max(1_000_000_000_000).optional(),
+    minWatchPercent: z.number().int().min(1).max(100).optional(),
+    sessionTtlSeconds: z.number().int().min(30).max(3600).optional(),
+    adsEnabled: z.boolean().optional(),
+  });
+
+  app.patch("/credits/config", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const parsed = CreditConfigSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new GatewayError("invalid_request", 400, parsed.error.issues[0].message);
+    }
+    const d = parsed.data;
+    const cfg = await prisma.creditConfig.upsert({
+      where: { id: "singleton" },
+      create: {
+        id: "singleton",
+        tokensPerRupiah: d.tokensPerRupiah ?? DEFAULT_CONFIG.tokensPerRupiah,
+        minConvertRupiah: d.minConvertRupiah ?? DEFAULT_CONFIG.minConvertRupiah,
+        dailyAdsPerUser: d.dailyAdsPerUser ?? DEFAULT_CONFIG.dailyAdsPerUser,
+        dailyRewardCapRupiah: d.dailyRewardCapRupiah ?? DEFAULT_CONFIG.dailyRewardCapRupiah,
+        weeklyTokenCap: BigInt(d.weeklyTokenCap ?? Number(DEFAULT_CONFIG.weeklyTokenCap)),
+        minWatchPercent: d.minWatchPercent ?? DEFAULT_CONFIG.minWatchPercent,
+        sessionTtlSeconds: d.sessionTtlSeconds ?? DEFAULT_CONFIG.sessionTtlSeconds,
+        adsEnabled: d.adsEnabled ?? DEFAULT_CONFIG.adsEnabled,
+      },
+      update: {
+        ...(d.tokensPerRupiah !== undefined && { tokensPerRupiah: d.tokensPerRupiah }),
+        ...(d.minConvertRupiah !== undefined && { minConvertRupiah: d.minConvertRupiah }),
+        ...(d.dailyAdsPerUser !== undefined && { dailyAdsPerUser: d.dailyAdsPerUser }),
+        ...(d.dailyRewardCapRupiah !== undefined && { dailyRewardCapRupiah: d.dailyRewardCapRupiah }),
+        ...(d.weeklyTokenCap !== undefined && { weeklyTokenCap: BigInt(d.weeklyTokenCap) }),
+        ...(d.minWatchPercent !== undefined && { minWatchPercent: d.minWatchPercent }),
+        ...(d.sessionTtlSeconds !== undefined && { sessionTtlSeconds: d.sessionTtlSeconds }),
+        ...(d.adsEnabled !== undefined && { adsEnabled: d.adsEnabled }),
+      },
+    });
+    await prisma.auditLog.create({
+      data: { actorId: "operator", action: "credits.config_updated", target: "credit-config", metadata: d },
+    });
+    return toConfigView(cfg);
+  });
+
+  /** The ad catalogue plus per-creative reward ranges and play counts. */
+  app.get("/ads/creatives", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const creatives = await prisma.adCreative.findMany({ orderBy: { slug: "asc" } });
+    const stats = await prisma.adSession.groupBy({ by: ["creativeId", "status"], _count: true });
+    const statMap = new Map<string, Record<string, number>>();
+    for (const s of stats) {
+      const row = statMap.get(s.creativeId) ?? {};
+      row[s.status] = s._count;
+      statMap.set(s.creativeId, row);
+    }
+    return {
+      creatives: creatives.map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        title: c.title,
+        brand: c.brand,
+        tagline: c.tagline,
+        videoUrl: c.videoUrl,
+        posterUrl: c.posterUrl,
+        accent: c.accent,
+        durationMs: c.durationMs,
+        source: c.source,
+        sourceUrl: c.sourceUrl,
+        license: c.license,
+        rewardMinRupiah: c.rewardMinRupiah,
+        rewardMaxRupiah: c.rewardMaxRupiah,
+        active: c.active,
+        sessions: statMap.get(c.id) ?? {},
+      })),
+    };
+  });
+
+  const CreativeSchema = z.object({
+    title: z.string().min(1).max(120).optional(),
+    tagline: z.string().max(200).nullable().optional(),
+    rewardMinRupiah: z.number().int().min(0).max(1_000_000).optional(),
+    rewardMaxRupiah: z.number().int().min(0).max(1_000_000).optional(),
+    active: z.boolean().optional(),
+  });
+
+  app.patch("/ads/creatives/:id", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const parsed = CreativeSchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, parsed.error.issues[0].message);
+    const d = parsed.data;
+    if (
+      d.rewardMinRupiah !== undefined &&
+      d.rewardMaxRupiah !== undefined &&
+      d.rewardMinRupiah > d.rewardMaxRupiah
+    ) {
+      throw new GatewayError("invalid_request", 400, "rewardMinRupiah must be <= rewardMaxRupiah");
+    }
+    const updated = await prisma.adCreative.update({
+      where: { id },
+      data: {
+        ...(d.title !== undefined && { title: d.title }),
+        ...(d.tagline !== undefined && { tagline: d.tagline }),
+        ...(d.rewardMinRupiah !== undefined && { rewardMinRupiah: d.rewardMinRupiah }),
+        ...(d.rewardMaxRupiah !== undefined && { rewardMaxRupiah: d.rewardMaxRupiah }),
+        ...(d.active !== undefined && { active: d.active }),
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: "operator",
+        action: "ads.creative_updated",
+        target: "creative:" + id,
+        metadata: d,
+      },
+    });
+    return updated;
+  });
+
+  /** Per-user wallet view. */
+  app.get("/users/:id/credits", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const [balance, allowance, entries] = await Promise.all([
+      getBalanceRupiah(prisma, id),
+      getAllowanceTokens(prisma, id),
+      listLedger(prisma, id, 50),
+    ]);
+    const adsToday = await prisma.adSession.count({
+      where: {
+        userId: id,
+        status: "COMPLETED",
+        completedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+      },
+    });
+    return {
+      userId: id,
+      balanceRupiah: balance,
+      allowanceTokens: allowance,
+      adsWatchedToday: adsToday,
+      entries,
+    };
+  });
+
+  /** Manual credit/debit: top-ups, goodwill grants, corrections. */
+  const AdjustSchema = z.object({
+    amountRupiah: z.number().int().min(-10_000_000).max(10_000_000),
+    type: z.enum(["TOPUP", "GRANT", "ADJUSTMENT", "REFUND"]).default("GRANT"),
+    note: z.string().max(200).optional(),
+  });
+
+  app.post("/users/:id/credits", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const parsed = AdjustSchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, parsed.error.issues[0].message);
+    const result = await adjustBalance(prisma, {
+      userId: id,
+      amountRupiah: parsed.data.amountRupiah,
+      type: parsed.data.type,
+      source: parsed.data.type === "TOPUP" ? "PAYMENT" : "OPERATOR",
+      note: parsed.data.note,
+      actorId: "operator",
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: "operator",
+        action: "credits.adjusted",
+        target: "user:" + id,
+        metadata: { ...parsed.data, balanceAfter: result.balanceRupiah },
+      },
+    });
+    return { userId: id, ...result };
+  });
+
+  /** Ads funnel: issued vs completed vs rejected over the last 7 days. */
+  app.get("/ads/stats", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const since = new Date(Date.now() - 7 * 86400_000);
+    const [byStatus, rewardAgg, topEarners] = await Promise.all([
+      prisma.adSession.groupBy({ by: ["status"], where: { issuedAt: { gte: since } }, _count: true }),
+      prisma.creditLedgerEntry.aggregate({
+        where: { type: "AD_REWARD", createdAt: { gte: since } },
+        _sum: { amountRupiah: true },
+        _count: true,
+      }),
+      prisma.creditLedgerEntry.groupBy({
+        by: ["userId"],
+        where: { type: "AD_REWARD", createdAt: { gte: since } },
+        _sum: { amountRupiah: true },
+        orderBy: { _sum: { amountRupiah: "desc" } },
+        take: 5,
+      }),
+    ]);
+    const users = await prisma.user.findMany({
+      where: { id: { in: topEarners.map((t) => t.userId) } },
+      select: { id: true, email: true },
+    });
+    const emailOf = new Map(users.map((u) => [u.id, u.email]));
+    return {
+      days: 7,
+      sessions: Object.fromEntries(byStatus.map((s) => [s.status, s._count])),
+      rewards: { count: rewardAgg._count, totalRupiah: rewardAgg._sum.amountRupiah ?? 0 },
+      topEarners: topEarners.map((t) => ({
+        userId: t.userId,
+        email: emailOf.get(t.userId) ?? t.userId,
+        earnedRupiah: t._sum.amountRupiah ?? 0,
+      })),
+    };
+  });
+
 };

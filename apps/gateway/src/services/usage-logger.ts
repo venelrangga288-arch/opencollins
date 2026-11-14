@@ -1,10 +1,11 @@
-/**
- * Usage logging — asynchronous via BullMQ. Never blocks the AI response path.
+﻿/**
+ * Usage logging â€” asynchronous via BullMQ. Never blocks the AI response path.
  * Idempotency: UsageRecord.requestId is UNIQUE; duplicate jobs are no-ops.
  */
-import type { PrismaClient, ModelPricing } from "@dgtlz/db";
+import type { PrismaClient, ModelPricing, BillingStatus } from "@dgtlz/db";
 import type { Logger } from "pino";
 import { computeCost, extractUsage, extractUsageFromStream, type Pricing } from "@dgtlz/core";
+import { getAllowanceTokens } from "./credits.js";
 
 export interface UsageJobData {
   requestId: string;
@@ -42,7 +43,7 @@ export async function processUsageJob(prisma: PrismaClient, job: UsageJobData, l
   // Idempotency guard: skip if a usage record for this requestId already exists.
   const existing = await prisma.usageRecord.findUnique({ where: { requestId: job.requestId }, select: { id: true } });
   if (existing) {
-    log.debug({ requestId: job.requestId }, "usage record already exists — skipping duplicate");
+    log.debug({ requestId: job.requestId }, "usage record already exists â€” skipping duplicate");
     return;
   }
 
@@ -56,12 +57,21 @@ export async function processUsageJob(prisma: PrismaClient, job: UsageJobData, l
   }
 
   const pricing = await resolvePricing(prisma, job.providerSlug, job.model);
-  const { estimatedCost, billingStatus } = computeCost(
+  const costed = computeCost(
     { inputTokens: usage?.inputTokens ?? null, outputTokens: usage?.outputTokens ?? null, totalTokens: usage?.totalTokens ?? null },
     pricing,
   );
+  const estimatedCost = costed.estimatedCost;
 
-  // RequestLog first — UsageRecord.requestId is a FK to RequestLog.requestId.
+  // Spend order: allowance tokens (paid) first, then the free metered pool.
+  // This is what makes "watch an ad -> convert -> keep using the API" work.
+  let billingStatus: BillingStatus = costed.billingStatus;
+  if ((usage?.totalTokens ?? 0) > 0) {
+    const allowance = await getAllowanceTokens(prisma, job.userId);
+    if (allowance > 0) billingStatus = "ALLOWANCE" as BillingStatus;
+  }
+
+  // RequestLog first â€” UsageRecord.requestId is a FK to RequestLog.requestId.
   await prisma.requestLog.upsert({
     where: { requestId: job.requestId },
     create: {

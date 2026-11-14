@@ -1,4 +1,4 @@
-// DGT.LZ Gateway — Prisma schema
+// DGT.LZ Gateway Ã¢â‚¬â€ Prisma schema
 
 generator client {
   provider = "prisma-client-js"
@@ -28,7 +28,8 @@ enum KeyStatus {
 enum BillingStatus {
   // MVP: metering only, no payments. TRACKED = usage recorded & costed.
   TRACKED
-  UNPRICED // model had no pricing row — cost is unknown, never fabricated
+  UNPRICED // model had no pricing row - cost is unknown, never fabricated
+  ALLOWANCE // paid for with converted credit balance (allowance tokens)
 }
 
 enum RequestStatus {
@@ -56,6 +57,8 @@ model User {
   requestLogs  RequestLog[]
   usageRecords UsageRecord[]
   agents       Agent[]
+  credits      CreditLedgerEntry[]
+  adSessions   AdSession[]
 
   @@index([status])
 }
@@ -141,7 +144,7 @@ model RequestLog {
 
 model UsageRecord {
   id            String        @id @default(cuid())
-  requestId     String        @unique // FK to RequestLog.requestId — enforces idempotency
+  requestId     String        @unique // FK to RequestLog.requestId Ã¢â‚¬â€ enforces idempotency
   userId        String
   apiKeyId      String?
   provider      String
@@ -198,7 +201,7 @@ model AuditLog {
   @@index([action])
 }
 
-// ── Agents: user-facing task runner ─────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Agents: user-facing task runner Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // A user (or operator) deploys an Agent: a named list of prompts executed
 // sequentially through the gateway provider. Progress is tracked per step so
 // the dashboard can poll live status.
@@ -249,4 +252,137 @@ model AgentStep {
   agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([agentId, index])
+}
+
+// ===========================================================================
+// Credits, ads ("watch to earn") and top-ups.
+//
+// LEDGER RULE: every balance movement is one immutable row in
+// CreditLedgerEntry. `balanceAfter` is written in the same transaction as the
+// row, so the newest row alone tells you the balance and the whole table is an
+// audit trail. Rows are never updated or deleted â€” corrections are new rows.
+//
+// All money is stored in WHOLE RUPIAH (Int). Ads pay Rp 700-5.000 per view,
+// conversions trade rupiah balance for an allowance-token pool.
+// ===========================================================================
+
+enum CreditEntryType {
+  AD_REWARD // watched a creative to completion
+  TOPUP // purchased balance (payment webhook)
+  GRANT // operator goodwill / promo
+  ADJUSTMENT // operator correction
+  CONVERT // balance -> allowance tokens (negative amount)
+  REFUND // reversal of a CONVERT
+}
+
+enum CreditSource {
+  HOUSE // our own creative, no sponsor revenue attached
+  SPONSOR // real sponsored creative
+  OPERATOR // issued from the operator console
+  PAYMENT // purchased
+}
+
+enum AdSessionStatus {
+  ISSUED // nonce minted, clip not finished yet
+  COMPLETED // finished within tolerance, reward paid
+  REJECTED // guard failed: too fast / tabbed away / replayed
+  EXPIRED // never finished before the deadline
+}
+
+model CreditLedgerEntry {
+  id            String          @id @default(cuid())
+  userId        String
+  type          CreditEntryType
+  source        CreditSource
+  /// Whole rupiah. Positive credits the balance, negative debits it.
+  amountRupiah  Int
+  /// Balance right after this entry, in whole rupiah.
+  balanceAfter  Int
+  /// CONVERT rows only: allowance tokens granted by this conversion.
+  tokensGranted BigInt?
+  /// AD_REWARD rows only: the ad session that paid this out.
+  adSessionId   String?         @unique
+  note          String?
+  actorId       String? // "operator" | "system" | user id
+  createdAt     DateTime        @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adSession AdSession? @relation(fields: [adSessionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([type, createdAt])
+}
+
+model AdCreative {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  brand           String
+  tagline         String?
+  videoUrl        String
+  posterUrl       String?
+  accent          String       @default("#67dcf2")
+  durationMs      Int          @default(7000)
+  source          CreditSource @default(HOUSE)
+  sourceUrl       String? // attribution for the stock footage
+  license         String?
+  rewardMinRupiah Int          @default(700)
+  rewardMaxRupiah Int          @default(5000)
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  sessions AdSession[]
+
+  @@index([active])
+}
+
+model AdSession {
+  id            String          @id @default(cuid())
+  userId        String
+  creativeId    String
+  /// HMAC(secret, id|userId|issuedAt) â€” binds the reward to this user.
+  nonce         String          @unique
+  status        AdSessionStatus @default(ISSUED)
+  /// Randomised at issue time so the client cannot pick its own payout.
+  rewardRupiah  Int
+  durationMs    Int
+  /// Times the tab lost focus during playback, reported by the client.
+  interruptions Int             @default(0)
+  /// How long the clip actually played, in ms, as reported by the client.
+  watchedMs     Int             @default(0)
+  ip            String?
+  userAgent     String?
+  issuedAt      DateTime        @default(now())
+  expiresAt     DateTime
+  completedAt   DateTime?
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creative AdCreative         @relation(fields: [creativeId], references: [id])
+  ledger   CreditLedgerEntry?
+
+  @@index([userId, issuedAt])
+  @@index([status])
+}
+
+/// One row, id = "singleton". Every knob is operator-editable at runtime.
+model CreditConfig {
+  id                    String   @id @default("singleton")
+  /// Allowance tokens granted per 1 rupiah of converted balance.
+  tokensPerRupiah       Int      @default(50)
+  /// Minimum unconverted balance (rupiah) before a conversion is allowed.
+  minConvertRupiah      Int      @default(10000)
+  /// Ads a single user may complete per calendar day.
+  dailyAdsPerUser       Int      @default(15)
+  /// Maximum rupiah a user may earn from ads per calendar day.
+  dailyRewardCapRupiah  Int      @default(60000)
+  /// Allowance tokens a user may convert per rolling week.
+  weeklyTokenCap        BigInt   @default(5000000)
+  /// Percent of the clip that must be watched before a reward is paid.
+  minWatchPercent       Int      @default(85)
+  /// Seconds an issued session stays valid.
+  sessionTtlSeconds     Int      @default(300)
+  /// Master switch â€” turning this off returns 503 from the earn endpoints.
+  adsEnabled            Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
 }

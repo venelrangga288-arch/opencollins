@@ -25,3 +25,8 @@ Thumbs.db
 *.log
 .turbo/
 collins-site/
+
+# local db dumps / scratch sql - never commit
+backups/
+*.sql.dump
+
