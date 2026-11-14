@@ -1,0 +1,3804 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collins — the free coding agent</title>
+  <meta name="description" content="Collins plans, edits and tests code across your repo. Free to use, funded by optional sponsor ads." />
+
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Syne"', 'Georgia', 'serif'],
+            editorial: ['"Instrument Serif"', 'Georgia', 'serif'],
+            sans: ['"Public Sans"', 'Tahoma', 'Verdana', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
+          },
+          colors: {
+            obsidian: {
+              950: '#111110',
+              900: '#161615',
+              850: '#1c1c1a',
+              800: '#222220',
+              700: '#262624',
+              600: '#333330',
+            }
+          },
+          boxShadow: {
+            'ide': '0 45px 120px -20px rgba(2, 10, 24, 0.88), 0 0 0 1px rgba(255, 255, 255, 0.14)',
+            'titanium': '0 40px 95px -15px rgba(2, 10, 26, 0.85), 0 0 0 10px #161615, 0 0 0 11px rgba(235, 248, 255, 0.28)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --navy-deep: #041024;
+      --navy-mid: #082046;
+      --electric-blue: #0d56b8;
+      --cyan-vivid: #1fa8f5;
+      --turquoise-soft: #26b9d9;
+      --sky-light: #67dcf2;
+      --ice-glow: #f4fbff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Public Sans', Tahoma, sans-serif;
+      background-color: #040c1a;
+      color: #f4fbff;
+      overflow-x: hidden;
+      margin: 0;
+    }
+
+    .atmospheric-mesh-bg {
+      position: relative;
+      background-color: #041229;
+      background-image:
+        radial-gradient(circle 420px at 50% 49%, rgba(185, 240, 255, 0.42) 0%, rgba(74, 210, 247, 0.28) 38%, rgba(30, 168, 245, 0.08) 68%, transparent 100%),
+        radial-gradient(ellipse 58% 54% at 88% 11%, rgba(246, 252, 255, 0.98) 0%, rgba(214, 243, 255, 0.88) 24%, rgba(145, 222, 255, 0.54) 48%, rgba(31, 166, 245, 0.16) 74%, transparent 92%),
+        radial-gradient(ellipse 66% 58% at 86% 78%, rgba(106, 220, 242, 0.82) 0%, rgba(38, 185, 217, 0.65) 38%, rgba(31, 166, 245, 0.36) 68%, transparent 92%),
+        radial-gradient(ellipse 72% 76% at 52% 46%, rgba(66, 201, 248, 0.62) 0%, rgba(31, 166, 245, 0.66) 28%, rgba(13, 88, 194, 0.68) 55%, rgba(7, 31, 68, 0.56) 80%, transparent 96%),
+        radial-gradient(ellipse 80% 96% at 6% 45%, #030f22 0%, #061b3a 42%, #08224a 68%, rgba(13, 88, 191, 0.35) 92%, transparent 100%),
+        linear-gradient(125deg, #030f22 0%, #071e40 25%, #0d58c2 51%, #1fa8f5 73%, #6ad9f0 90%, #f4fbff 100%);
+    }
+
+    .hero-bottom-seamless-fade {
+      pointer-events: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 310px;
+      z-index: 15;
+      background: linear-gradient(
+        180deg,
+        rgba(4, 12, 26, 0) 0%,
+        rgba(4, 15, 32, 0.16) 24%,
+        rgba(4, 14, 30, 0.42) 52%,
+        rgba(4, 13, 28, 0.78) 78%,
+        #040c1a 100%
+      );
+    }
+
+    .scroll-fade-bridge {
+      position: relative;
+      background:
+        radial-gradient(ellipse 72% 130px at 54% 0%, rgba(31, 166, 245, 0.22) 0%, rgba(40, 189, 219, 0.09) 48%, transparent 85%),
+        #040c1a;
+    }
+
+    .below-fold-mesh {
+      background-color: #040c1a;
+      background-image:
+        radial-gradient(ellipse 62% 38% at 78% 4%, rgba(31, 166, 245, 0.16) 0%, rgba(40, 189, 219, 0.08) 45%, transparent 78%),
+        radial-gradient(ellipse 65% 55% at 86% 88%, rgba(40, 189, 219, 0.16) 0%, rgba(13, 88, 191, 0.10) 52%, transparent 85%),
+        radial-gradient(ellipse 85% 90% at 12% 40%, #040c1a 0%, #06152d 58%, #071e40 100%);
+    }
+
+    .film-grain-layer {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 48;
+      opacity: 0.17;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 260 260' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='fineGrain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23fineGrain)'/%3E%3C/svg%3E");
+    }
+
+    .hero-bottom-left-chamfer {
+      position: absolute;
+      bottom: -1px;
+      left: -1px;
+      width: 82px;
+      height: 82px;
+      background: #ffffff;
+      clip-path: polygon(0 0, 0 100%, 100% 100%);
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    @media (max-width: 640px) {
+      .hero-bottom-left-chamfer {
+        width: 48px;
+        height: 48px;
+      }
+    }
+
+    .chamfer-btn-tr {
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    }
+
+    .chamfer-drawer-tr {
+      clip-path: polygon(
+        0 0,
+        calc(100% - 58px) 0,
+        100% 58px,
+        100% 100%,
+        0 100%
+      );
+    }
+
+    .refractive-monolith {
+      background: linear-gradient(
+        160deg,
+        rgba(244, 251, 255, 0.28) 0%,
+        rgba(198, 236, 255, 0.14) 52%,
+        rgba(38, 185, 217, 0.10) 100%
+      );
+      backdrop-filter: blur(18px) saturate(155%);
+      -webkit-backdrop-filter: blur(18px) saturate(155%);
+      border: 1px solid rgba(255, 255, 255, 0.46);
+      box-shadow:
+        0 30px 80px -15px rgba(4, 16, 36, 0.52),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.72);
+    }
+
+    .star-hud-panel {
+      background: linear-gradient(
+        165deg,
+        rgba(4, 16, 36, 0.68) 0%,
+        rgba(8, 32, 70, 0.52) 100%
+      );
+      backdrop-filter: blur(20px) saturate(150%);
+      -webkit-backdrop-filter: blur(20px) saturate(150%);
+      border: 1px solid rgba(244, 251, 255, 0.26);
+      box-shadow: 0 24px 60px -15px rgba(2, 10, 24, 0.7);
+    }
+
+    .frosted-nav-pill {
+      background: rgba(244, 251, 255, 0.15);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+    }
+
+    .frosted-pill {
+      background: rgba(4, 16, 36, 0.38);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(244, 251, 255, 0.24);
+    }
+
+    .architectural-column {
+      position: relative;
+      border-left: 1px solid rgba(244, 251, 255, 0.30);
+    }
+
+    .architectural-column::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 28px;
+      height: 1px;
+      background: rgba(244, 251, 255, 0.34);
+    }
+
+    .architectural-column::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 28px;
+      width: 39.5px;
+      height: 1px;
+      background: rgba(244, 251, 255, 0.42);
+      transform-origin: left top;
+      transform: rotate(45deg);
+    }
+
+    .pipeline-column {
+      position: relative;
+      border-left: 1px solid rgba(244, 251, 255, 0.38);
+      background: linear-gradient(180deg, rgba(4, 18, 41, 0.36) 0%, rgba(4, 18, 41, 0.14) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 0 18px 18px 0;
+      transition: all 0.3s ease;
+    }
+
+    .pipeline-column:hover {
+      border-left-color: #ffffff;
+      background: linear-gradient(180deg, rgba(13, 88, 194, 0.34) 0%, rgba(4, 18, 41, 0.24) 100%);
+      transform: translateY(-2px);
+    }
+
+    .pipeline-column::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 28px;
+      height: 1px;
+      background: rgba(244, 251, 255, 0.38);
+    }
+
+    .pipeline-column::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 28px;
+      width: 39.5px;
+      height: 1px;
+      background: rgba(244, 251, 255, 0.55);
+      transform-origin: left top;
+      transform: rotate(45deg);
+    }
+
+    .ide-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .ide-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .ide-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 9999px;
+    }
+    .ide-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.26);
+    }
+
+    .timeline-row {
+      position: relative;
+    }
+    .timeline-row::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: -10px;
+      bottom: -10px;
+      width: 1px;
+      background-color: #292927;
+      z-index: 0;
+    }
+    .timeline-row:first-child::before {
+      top: -14px;
+    }
+    .timeline-row:last-child::before {
+      bottom: 50%;
+    }
+
+    #hero-foreground-layer,
+    #vessels-webgl-canvas {
+      transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), filter 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    body.drawer-open #hero-foreground-layer,
+    body.drawer-open #vessels-webgl-canvas {
+      transform: translateX(130px);
+      filter: brightness(0.84);
+    }
+    @media (max-width: 1024px) {
+      body.drawer-open #hero-foreground-layer,
+      body.drawer-open #vessels-webgl-canvas {
+        transform: translateX(0);
+      }
+    }
+
+    input[type="range"].star-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(244, 251, 255, 0.22);
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"].star-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #1fa8f5;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(58, 208, 248, 0.8);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    @media (max-width: 640px) {
+      input[type="text"],
+      textarea {
+        font-size: 16px !important;
+      }
+      input[type="range"].star-slider {
+        height: 6px;
+      }
+      input[type="range"].star-slider::-webkit-slider-thumb {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body class="outer-ripple-shell antialiased selection:bg-[#f4fbff] selection:text-[#041024]">
+
+  <div class="film-grain-layer" aria-hidden="true"></div>
+
+  <div id="kinetic-manifesto-overlay" class="fixed inset-0 z-50 hidden bg-[#f7fcff] text-[#041024] p-6 sm:p-12 flex-col justify-between select-none overflow-hidden">
+    <div class="flex items-start justify-between relative z-10">
+      <div class="font-display font-bold text-xl sm:text-2xl tracking-tight leading-[1.15] text-[#041024]">
+        <div>Autonomous,</div>
+        <div>Unlimited, Free,</div>
+        <div>Accessible</div>
+      </div>
+      <button onclick="closeKineticIntro()" class="px-4 py-2 rounded-full border border-[#041024]/20 text-xs font-sans font-medium tracking-wide hover:bg-[#041024] hover:text-white transition-colors">
+        Close [ESC]
+      </button>
+    </div>
+
+    <div class="relative flex-1 flex items-center justify-center my-4 overflow-hidden">
+      <div class="relative flex items-center justify-center w-full max-w-2xl h-72 sm:h-96">
+        <div id="kinetic-giant-letter" class="font-display font-extrabold text-[150px] sm:text-[310px] leading-none tracking-tighter text-[#041024] transition-all duration-300">
+          C
+        </div>
+        <div id="kinetic-superscript-word" class="absolute top-6 sm:top-16 right-4 sm:right-20 font-mono text-xs sm:text-sm font-medium tracking-widest lowercase text-[#0d56b8] bg-[#f7fcff]/80 px-2 py-0.5 rounded">
+          coding
+        </div>
+      </div>
+    </div>
+
+    <div class="relative z-10 space-y-3">
+      <div class="flex items-center justify-between font-mono text-[11px] text-[#041024]/60">
+        <span id="kinetic-step-label">01 / 07</span>
+        <span class="dynamic-zero-full">Rp 0 — Selamanya Gratis</span>
+      </div>
+      <div class="w-full h-[1.5px] bg-[#041024]/12 overflow-hidden">
+        <div id="kinetic-progress-bar" class="h-full bg-[#041024] transition-all duration-300" style="width: 14%"></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="hero-stage" class="relative min-h-[100svh] sm:min-h-[104vh] w-full flex flex-col justify-between atmospheric-mesh-bg overflow-hidden select-none">
+
+    <div class="pointer-events-none absolute inset-x-2.5 sm:inset-x-7 top-3 sm:top-6 bottom-12 sm:bottom-20 rounded-[22px] sm:rounded-[28px] border border-white/20 z-[8]"></div>
+
+    <canvas id="vessels-webgl-canvas" class="absolute inset-0 w-full h-full z-[3] pointer-events-none"></canvas>
+
+    <div id="slideover-backdrop" onclick="closeRequestDrawer()" class="fixed inset-0 z-30 hidden bg-[#041024]/40 backdrop-blur-[3px] transition-opacity"></div>
+
+    <aside id="slideover-drawer" class="fixed top-3 bottom-3 left-3 sm:top-4 sm:bottom-4 sm:left-4 z-40 w-[calc(100vw-1.5rem)] sm:w-[410px] -translate-x-[115%] transition-transform duration-500 ease-out">
+      <div class="w-full h-full bg-white text-[#041024] rounded-[22px] chamfer-drawer-tr p-6 sm:p-9 flex flex-col justify-between shadow-2xl overflow-y-auto">
+        <div class="flex items-center justify-between pr-8">
+          <span class="w-5 h-5 rounded-full border border-[#041024]/25 flex items-center justify-center font-editorial italic text-xs text-[#041024]/70">
+            i
+          </span>
+          <button onclick="closeRequestDrawer()" class="w-7 h-7 rounded-full hover:bg-[#041024]/5 flex items-center justify-center text-[#041024]/70 hover:text-[#041024] transition-colors" title="Close [ESC]">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="my-auto space-y-5">
+          <div class="space-y-1">
+            <div class="flex items-baseline gap-2">
+              <span class="font-editorial italic text-[15px] text-[#0d56b8]">Zero-cost agent</span>
+              <span class="dynamic-zero-price font-sans text-[11px] font-semibold text-[#0d56b8]">Rp 0</span>
+            </div>
+            <label for="drawer-identity-input" class="block font-sans font-semibold text-sm text-[#041024]">
+              Launch Collins in your terminal or OpenCode CLI
+            </label>
+          </div>
+
+          <div class="flex items-center gap-1 bg-[#f0f8ff] p-1 rounded-xl border border-[#0d56b8]/15 font-mono text-[11px]">
+            <button type="button" onclick="selectDeployTab('npx')" id="tab-npx" class="flex-1 py-1.5 rounded-lg bg-[#041024] text-white font-semibold transition-all">npx</button>
+            <button type="button" onclick="selectDeployTab('bunx')" id="tab-bunx" class="flex-1 py-1.5 rounded-lg text-[#041024]/70 hover:text-[#041024] transition-all">bunx</button>
+            <button type="button" onclick="selectDeployTab('pnpm')" id="tab-pnpm" class="flex-1 py-1.5 rounded-lg text-[#041024]/70 hover:text-[#041024] transition-all">pnpm</button>
+            <button type="button" onclick="selectDeployTab('curl')" id="tab-curl" class="flex-1 py-1.5 rounded-lg text-[#041024]/70 hover:text-[#041024] transition-all">curl</button>
+          </div>
+
+          <form onsubmit="handleDrawerSubmit(event)" class="space-y-3.5">
+            <div class="relative">
+              <input
+                id="drawer-identity-input"
+                type="text"
+                value="npx @collins/agent@latest init --free"
+                placeholder="@username or workspace..."
+                class="w-full pl-4 pr-16 py-3.5 rounded-xl bg-[#f4fbff] border border-[#0d56b8]/25 font-mono text-xs text-[#041024] focus:outline-none focus:border-[#0d56b8] transition-colors"
+              />
+              <button
+                type="button"
+                onclick="copyDeployCommand()"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#041024]/10 hover:bg-[#041024] hover:text-white text-[#041024] font-mono text-[10px] transition-colors"
+              >
+                <span id="copy-btn-text">Copy</span>
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-[#67dcf2] via-[#1fa8f5] to-[#0d56b8] text-white font-sans font-medium text-xs tracking-wide flex items-center justify-between shadow-md hover:brightness-105 transition-all"
+            >
+              <span id="drawer-submit-label">Copy command &amp; open workstation</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </form>
+
+          <div class="pt-3 border-t border-[#041024]/10 flex items-center justify-between text-[11px] text-[#041024]/60">
+            <span>Rather use the desktop app?</span>
+            <button type="button" onclick="closeRequestDrawer(); openGetStarted();" class="font-semibold text-[#0d56b8] hover:underline underline-offset-4">Download it →</button>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-[#041024]/45 leading-relaxed">
+          Free to use. Sonnet 4.5, Opus 4.5, Tera 2.0 and Argon Ultra are paid for by sponsors — you can watch short ads to top up your token balance, or not.
+        </div>
+      </div>
+    </aside>
+
+    <div id="hero-foreground-layer" class="relative z-20 w-full max-w-[1480px] mx-auto flex-1 flex flex-col justify-between px-5 sm:px-14 lg:px-16 pt-6 sm:pt-12 pb-16 sm:pb-28">
+
+      <header class="flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2 sm:gap-4">
+          <div class="flex items-center gap-2 sm:gap-3.5">
+            <a href="#hero-stage" class="font-display font-bold text-sm sm:text-lg tracking-[0.16em] uppercase text-white">
+              COLLINS
+            </a>
+            <button
+              onclick="cycleGeoCurrency()"
+              title="Click to cycle local zero-currency (Rp 0 / $0 / €0 / ¥0 / £0 / S$0)"
+              class="px-2.5 sm:px-3 py-1 rounded-full bg-white/12 hover:bg-white/22 border border-white/25 font-mono text-[10.5px] sm:text-[11px] text-white flex items-center gap-1.5 backdrop-blur-md transition-all active:scale-95"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-[#67dcf2]"></span>
+              <span class="dynamic-zero-price font-semibold">Rp 0</span>
+              <span id="top-geo-code" class="text-white/70 text-[10px]">· ID</span>
+            </button>
+          </div>
+
+          <nav class="hidden md:flex items-center gap-1 px-2 py-1.5 rounded-full frosted-nav-pill text-xs text-white/90">
+            <button
+              onclick="switchHeroStageView('studio')"
+              id="hero-nav-studio"
+              class="px-4 py-1.5 rounded-full bg-white/25 text-white font-medium transition-all"
+            >
+              Home
+            </button>
+            <button
+              onclick="switchHeroStageView('specs')"
+              id="hero-nav-specs"
+              class="px-4 py-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-all"
+            >
+              How to use
+            </button>
+            <button
+              onclick="switchHeroStageView('benchmarks')"
+              id="hero-nav-benchmarks"
+              class="px-4 py-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-all"
+            >
+              About
+            </button>
+            <a href="#workspace-section" class="px-4 py-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-all">
+              Preview
+            </a>
+            <button
+              onclick="switchHeroStageView('physics')"
+              id="hero-nav-physics"
+              class="px-4 py-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-all"
+            >
+              3D Lab
+            </button>
+          </nav>
+
+          <button
+            onclick="openGetStarted()"
+            class="px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-white hover:bg-[#f4fbff] text-[#041024] font-sans font-semibold text-xs tracking-wide flex items-center gap-3 sm:gap-5 shadow-lg chamfer-btn-tr transition-transform active:scale-95 sm:hover:scale-[1.02]"
+          >
+            <span class="gs-cta-label">Get started</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <nav class="flex md:hidden items-center justify-between gap-1 px-1.5 py-1 rounded-full frosted-nav-pill text-[11px] text-white/90 overflow-x-auto no-scrollbar">
+          <button
+            onclick="switchHeroStageView('studio')"
+            id="hero-nav-studio-mob"
+            class="px-3 py-1.5 rounded-full bg-white/25 text-white font-medium shrink-0 transition-all"
+          >
+            Home
+          </button>
+          <button
+            onclick="switchHeroStageView('specs')"
+            id="hero-nav-specs-mob"
+            class="px-3 py-1.5 rounded-full text-white/80 shrink-0 transition-all"
+          >
+            How to use
+          </button>
+          <button
+            onclick="switchHeroStageView('benchmarks')"
+            id="hero-nav-benchmarks-mob"
+            class="px-3 py-1.5 rounded-full text-white/80 shrink-0 transition-all"
+          >
+            About
+          </button>
+          <button
+            onclick="switchHeroStageView('physics')"
+            id="hero-nav-physics-mob"
+            class="px-3 py-1.5 rounded-full text-white/80 shrink-0 transition-all"
+          >
+            3D Lab
+          </button>
+          <a
+            href="#workspace-section"
+            class="px-3 py-1.5 rounded-full text-[#d6f4ff] font-mono shrink-0 transition-all"
+          >
+            Preview ↓
+          </a>
+        </nav>
+      </header>
+
+      <div id="hero-view-studio" class="relative flex-1 flex flex-col lg:flex-row items-center justify-between my-auto pointer-events-none min-h-[270px] sm:min-h-[360px]">
+        <div class="hidden lg:flex flex-col items-start gap-2 pointer-events-auto pl-12 pt-10">
+          <button
+            onclick="switchHeroStageView('specs')"
+            class="text-[11px] font-sans text-white/65 hover:text-white tracking-wide transition-colors"
+          >
+            About
+          </button>
+        </div>
+
+        <div class="flex-1 w-full"></div>
+
+        <div class="flex flex-col items-center lg:items-end gap-2 pointer-events-auto lg:pr-8 pb-2 lg:pb-8 mt-auto lg:mt-0">
+          <div class="flex items-center gap-1.5">
+            <button
+              onclick="toggleSculptureGeometryMode()"
+              id="sculpture-mode-pill"
+              title="Tap to switch 3D Core between Quantum Prism & Optical Vessels"
+              class="px-3.5 py-1.5 rounded-full bg-white/14 hover:bg-white/24 border border-white/25 font-mono text-[10px] text-white/95 hover:text-white backdrop-blur-md transition-all active:scale-95"
+            >
+              Quantum Prism · Interactive 3D
+            </button>
+            <button
+              onclick="switchHeroStageView('physics')"
+              title="Open 3D Optics Inspector HUD"
+              class="w-7 h-7 rounded-full bg-white/14 hover:bg-white/25 border border-white/25 font-mono text-[11px] text-white flex items-center justify-center backdrop-blur-md transition-all active:scale-95"
+            >
+              ⚙
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="hero-view-specs" class="hidden relative flex-1 flex-col justify-center my-auto py-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mb-8 sm:mb-12">
+          <div class="lg:col-span-2 font-sans text-xs text-white/80 pt-2">
+            About
+          </div>
+          <div class="lg:col-span-7">
+            <h2 class="font-sans font-semibold text-3xl sm:text-5xl text-white tracking-tight leading-[1.08]">
+              The Basics of <br />
+              Autonomous Coding Intelligence
+            </h2>
+          </div>
+          <div class="lg:col-span-3 flex lg:justify-end">
+            <button onclick="switchHeroStageView('studio')" class="px-3.5 py-1.5 rounded-full frosted-pill font-mono text-[11px] text-white/85 hover:text-white">
+              ← Back to Sculpture
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:ml-[16.666%]">
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-8 pb-6">
+            <h3 class="font-sans font-semibold text-xl text-white">Reasoning</h3>
+            <div class="flex items-start gap-4 text-xs text-white/90 leading-relaxed">
+              <span class="font-mono text-white/65 shrink-0">.01</span>
+              <p>Collins parses full repository ASTs into an active 2M-token semantic graph regulated by open benchmarks, starting at <span class="dynamic-zero-price font-semibold text-white">Rp 0</span> forever.</p>
+            </div>
+          </div>
+
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-8 pb-6">
+            <h3 class="font-sans font-semibold text-xl text-white">Synthesis</h3>
+            <div class="flex items-start gap-4 text-xs text-white/90 leading-relaxed">
+              <span class="font-mono text-white/65 shrink-0">.02</span>
+              <p>Multi-model consensus across Sonnet 4.5, Opus 4.5, Tera 2.0 & Argon Ultra drafts multi-file patches synced across desktop and mobile phone.</p>
+            </div>
+          </div>
+
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-8 pb-6">
+            <h3 class="font-sans font-semibold text-xl text-white">Verification</h3>
+            <div class="flex items-start gap-4 text-xs text-white/90 leading-relaxed">
+              <span class="font-mono text-white/65 shrink-0">.03</span>
+              <p>Executes <code class="font-mono">bun test</code> suites inside isolated sandboxes and syncs bidirectionally with your local OpenCode CLI daemon.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="hero-view-benchmarks" class="hidden relative flex-1 flex-col justify-center my-auto py-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mb-8 sm:mb-12">
+          <div class="lg:col-span-2 pt-2 font-editorial italic text-[19px] text-[#dff4ff]">
+            Benchmarks
+          </div>
+          <div class="lg:col-span-7">
+            <h2 class="font-sans font-semibold text-3xl sm:text-5xl text-white tracking-tight leading-[1.08]">
+              Verified Engineering <br />
+              Performance at <span class="dynamic-zero-price">Rp 0</span>
+            </h2>
+          </div>
+          <div class="lg:col-span-3 flex lg:justify-end">
+            <button onclick="switchHeroStageView('studio')" class="px-3.5 py-1.5 rounded-full frosted-pill font-mono text-[11px] text-white/85 hover:text-white">
+              ← Back to Sculpture
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:ml-[16.666%]">
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-4 pb-6">
+            <div class="font-sans text-[10.5px] tracking-[0.05em] text-[#9adcf0]">SWE-Bench verified</div>
+            <div class="font-display font-extrabold text-4xl text-white">94.2%</div>
+            <p class="text-xs text-white/85 leading-relaxed">
+              Multi-model consensus resolution rate on end-to-end GitHub pull requests with zero hallucinated imports.
+            </p>
+          </div>
+
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-4 pb-6">
+            <div class="font-sans text-[10.5px] tracking-[0.05em] text-[#9adcf0]">Active repo context</div>
+            <div class="font-display font-extrabold text-4xl text-white">2.0M <span class="text-lg font-normal text-[#c6ecff]">tokens</span></div>
+            <p class="text-xs text-white/85 leading-relaxed">
+              Powered by Tera 2.0 whole-monorepo indexing with sub-180ms time-to-first-token streaming.
+            </p>
+          </div>
+
+          <div class="pipeline-column pt-8 pl-5 pr-6 space-y-4 pb-6">
+            <div class="font-sans text-[10.5px] tracking-[0.05em] text-[#9adcf0]">Local compute cost</div>
+            <div class="font-display font-extrabold text-4xl text-white dynamic-zero-price">Rp 0</div>
+            <p class="text-xs text-white/85 leading-relaxed">
+              100% free unlimited agentic loops under the Zero-Cost Compute Charter. Zero credit cards required.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div id="hero-view-physics" class="hidden relative flex-1 items-center justify-between my-auto py-2 gap-6">
+        <div class="w-full max-w-[300px] rounded-2xl star-hud-panel p-5 font-mono text-xs space-y-4 pointer-events-auto">
+          <div class="flex items-center justify-between border-b border-white/15 pb-2.5">
+            <div>
+              <div class="text-[10px] text-[#67dcf2] tracking-widest">[ OPTICAL_SHADER_LAB ]</div>
+              <div class="text-white font-semibold text-xs mt-0.5">3D_REFRACTION_CORE</div>
+            </div>
+            <button onclick="toggleSculptureGeometryMode()" id="hud-mode-badge" class="px-2 py-0.5 rounded bg-[#38c6f4]/25 hover:bg-[#38c6f4]/40 text-[#67dcf2] text-[10px] transition-colors">
+              MODE: PRISM ⇄
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-white/75">DISPERSION / SPREAD:</span>
+                <span id="hud-val-elongation" class="text-[#67dcf2]">1.00</span>
+              </div>
+              <input id="slider-elongation" type="range" min="0.65" max="1.45" step="0.05" value="1.00" oninput="updateVesselPhysicsFromHUD()" class="star-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-white/75">REFRACTION INDEX (IOR):</span>
+                <span id="hud-val-ior" class="text-[#67dcf2]">1.520</span>
+              </div>
+              <input id="slider-ior" type="range" min="1.15" max="2.10" step="0.01" value="1.52" oninput="updateVesselPhysicsFromHUD()" class="star-slider" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-white/75">ORBITAL GYRO DRIFT:</span>
+                <span id="hud-val-swirl" class="text-[#67dcf2]">50%</span>
+              </div>
+              <input id="slider-swirl" type="range" min="0" max="100" step="1" value="50" oninput="updateVesselPhysicsFromHUD()" class="star-slider" />
+            </div>
+          </div>
+
+          <button onclick="switchHeroStageView('studio')" class="w-full py-2 rounded-xl bg-white text-[#041024] font-sans font-semibold text-xs">
+            Return to Open Sculpture
+          </button>
+        </div>
+
+        <div class="hidden lg:flex flex-col justify-between w-full max-w-[300px] rounded-2xl star-hud-panel p-5 font-mono text-xs space-y-4 pointer-events-auto">
+          <div class="border-b border-white/15 pb-2.5 flex items-center justify-between">
+            <span class="text-white font-semibold">SCULPTURE TELEMETRY</span>
+            <span class="text-[#67dcf2]">GLSL LIVE</span>
+          </div>
+          <div class="space-y-2 text-[11px]">
+            <div class="flex justify-between"><span class="text-white/65">CORE:</span><span id="telemetry-core-label" class="text-white">QUANTUM_PRISM_GYRO</span></div>
+            <div class="flex justify-between"><span class="text-white/65">FLANKING:</span><span class="text-white">LIQUID_CHROME_LOOPS</span></div>
+            <div class="flex justify-between"><span class="text-white/65">LOCAL TIER:</span><span class="text-[#67dcf2] font-semibold dynamic-zero-price">Rp 0</span></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="toggleSculptureGeometryMode()" class="py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-mono text-[10.5px]">
+              Switch 3D Mesh
+            </button>
+            <button onclick="openKineticIntro()" class="py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-mono text-[10.5px]">
+              Play Manifesto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-end pt-3 sm:pt-4">
+
+        <div class="md:col-span-5 flex items-start gap-4 sm:gap-6">
+          <span class="text-xs text-white/85 font-normal shrink-0 pt-0.5">
+            Collins is
+          </span>
+          <div class="flex-1 sm:flex-initial sm:w-64 pt-3 border-t border-white/45">
+            <div class="font-sans font-semibold text-base sm:text-[21px] text-white leading-[1.22] tracking-tight">
+              Autonomous,<br />
+              <span class="dynamic-zero-price text-[#d6f4ff]">Rp 0</span> Forever,<br />
+              Accessible
+            </div>
+            <div class="mt-2 flex items-center justify-between gap-2 font-mono text-[10px] sm:text-[10.5px] text-white/75">
+              <span>Sonnet · Opus · Tera · Argon</span>
+              <button onclick="cycleGeoCurrency()" title="Show the price in another currency" class="underline decoration-white/40 hover:text-white shrink-0">
+                Currency ↻
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2 hidden md:flex flex-col items-center gap-1.5">
+          <button
+            onclick="openKineticIntro()"
+            class="group flex items-center gap-2 font-editorial italic text-[15px] text-[#dff4ff]/85 hover:text-white transition-colors"
+          >
+            <span class="h-px w-6 bg-white/35 group-hover:bg-white/80 transition-colors"></span>
+            Manifesto
+            <span class="h-px w-6 bg-white/35 group-hover:bg-white/80 transition-colors"></span>
+          </button>
+          <a
+            href="#workspace-section"
+            class="text-[11px] font-sans tracking-wide text-[#d6f4ff]/65 hover:text-white flex items-center gap-1 transition-colors"
+          >
+            <span>See the preview</span>
+            <span>↓</span>
+          </a>
+        </div>
+
+        <div class="md:col-span-5 md:flex md:justify-end">
+          <div class="max-w-full sm:max-w-[345px] space-y-2.5 sm:space-y-3">
+            <h1 class="font-sans font-semibold text-xl sm:text-[30px] text-white leading-[1.15] tracking-tight drop-shadow-sm">
+              Ship real code with an agent that costs <span class="dynamic-zero-price">Rp 0</span>.
+            </h1>
+            <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              <button
+                type="button"
+                onclick="openGetStarted()"
+                class="chamfer-btn-tr inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#041024] font-mono text-[12px] font-semibold shadow-lg transition-all hover:bg-[#eaf7ff] active:scale-95"
+              >
+                <span class="gs-cta-label uppercase">Get started</span><span aria-hidden="true">→</span>
+              </button>
+              <a
+                href="#workspace-section"
+                class="inline-flex items-center gap-2 px-4 py-2 sm:py-1.5 rounded-full bg-white/18 hover:bg-white/28 border border-white/30 font-mono text-[11px] text-white backdrop-blur-md transition-all active:scale-95"
+              >
+                <span>See the preview</span>
+                <span>↓</span>
+              </a>
+              <button
+                onclick="openKineticIntro()"
+                class="md:hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/10 border border-white/20 font-mono text-[10.5px] text-white/90"
+              >
+                <span>Manifesto</span>
+              </button>
+              <span class="font-mono text-[11px] text-white/90 dynamic-zero-full">
+                Rp 0 / Selamanya
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="hero-bottom-seamless-fade" aria-hidden="true"></div>
+
+  </section>
+
+  <div class="below-fold-mesh scroll-fade-bridge text-[#f4fbff] relative z-20 -mt-12 pt-8">
+
+    <section id="workspace-section" class="py-20 sm:py-28 px-3 sm:px-6 lg:px-10 relative scroll-mt-6">
+      <div class="max-w-[1380px] mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end mb-10">
+          <div class="lg:col-span-7">
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+              <span class="font-sans text-[10px] tracking-[0.14em] text-[#67dcf2]/75">Nº 02</span>
+              <span class="font-editorial italic text-[20px] sm:text-[23px] leading-none text-[#dff4ff]">The workstation</span>
+              <span class="hidden sm:block h-px w-8 bg-[#67dcf2]/40 self-center"></span>
+              <span class="font-mono text-[10.5px] tracking-wide text-[#67dcf2] px-2 py-0.5 rounded-full border border-[#67dcf2]/35">PREVIEW</span>
+            </div>
+            <h2 class="font-display font-extrabold text-3xl sm:text-5xl text-[#f4fbff] tracking-tight leading-[1.06]">
+              Every edit, out in the open. <br />
+              <span class="font-editorial italic font-normal text-4xl sm:text-6xl text-[#c6ecff]">
+                Read the plan, check the diff, ship.
+              </span>
+            </h2>
+          </div>
+
+          <div class="lg:col-span-5 flex flex-col items-start lg:items-end gap-4 lg:text-right">
+            <p class="text-sm text-[#e6f5ff]/80 leading-relaxed max-w-[380px]">
+              Below is a read-only look at four real threads. Click around — open steps, expand diffs. To start your own session, install Collins.
+            </p>
+            <button onclick="openGetStarted()" class="chamfer-btn-tr inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#041024] font-mono text-[12px] font-semibold shadow-lg transition-all hover:bg-[#eaf7ff] active:scale-95">
+              <span class="gs-cta-label uppercase">Get started</span><span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="workspace-ide-shell" class="relative rounded-[20px] bg-obsidian-950 border border-obsidian-700 shadow-ide overflow-hidden text-[#e6e6e3] transition-shadow duration-500">
+
+          <div class="h-12 sm:h-11 bg-obsidian-950 border-b border-obsidian-700 flex items-center justify-between select-none">
+
+            <div class="w-full sm:w-[276px] shrink-0 px-3 sm:px-3.5 flex items-center justify-between sm:border-r border-obsidian-700 h-full">
+              <div class="flex items-center gap-2 sm:gap-3 text-[#7c7c78] min-w-0">
+                <button onclick="cycleThread(-1)" title="Previous Thread" class="hover:text-white transition-colors p-1.5 sm:p-1 shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m0 0l6-6m-6 6l6 6"/>
+                  </svg>
+                </button>
+                <button onclick="cycleThread(1)" title="Next Thread" class="hover:text-white/80 text-[#4d4d4a] transition-colors p-1.5 sm:p-1 shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m0 0l-6-6m6 6l-6 6"/>
+                  </svg>
+                </button>
+
+                <button
+                  onclick="toggleMobileSidebar()"
+                  class="sm:hidden px-2.5 py-1 rounded-lg bg-[#262624] border border-[#363633] text-white text-xs font-medium flex items-center gap-2 truncate max-w-[165px]"
+                >
+                  <span id="workspace-active-tab-title-mobile" class="truncate">Dark mode toggle</span>
+                  <svg class="w-3 h-3 text-[#8a8a86] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="flex items-center gap-2 sm:gap-2.5 text-[#8a8a86] shrink-0">
+                <button onclick="toggleMobileSidebar()" class="sm:hidden px-2.5 py-1 rounded-lg bg-obsidian-800 hover:bg-obsidian-700 text-[#67dcf2] text-[11px] font-mono border border-obsidian-600">
+                  Threads
+                </button>
+                <button onclick="toggleSidebarCollapse()" title="Toggle Left Sidebar" class="hidden sm:inline-flex hover:text-white transition-colors p-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="9" y1="4" x2="9" y2="20"/>
+                    <path d="M6.5 10l-1.5 2 1.5 2"/>
+                  </svg>
+                </button>
+                <button onclick="toggleTerminalDrawer()" title="Toggle Integrated bun test Runner" class="hover:text-white transition-colors p-1.5 sm:p-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="3" y1="14" x2="21" y2="14"/>
+                  </svg>
+                </button>
+                <button onclick="toggleAllDiffs()" title="Expand / Collapse All File Diffs" class="hover:text-white transition-colors p-1.5 sm:p-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="12" y1="4" x2="12" y2="20"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="hidden sm:flex flex-1 items-center justify-between px-3 h-full bg-obsidian-950">
+              <div class="flex items-center gap-2">
+                <div class="h-8 px-3.5 rounded-lg bg-[#262624] text-[#f4f4f2] text-[13px] font-medium flex items-center gap-9 border border-[#333330]">
+                  <span id="workspace-active-tab-title" class="truncate max-w-[220px]">Dark mode toggle</span>
+                  <button onclick="resetToDefaultThread()" class="text-[#8e8e8a] hover:text-white transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 pr-1.5 text-[#8a8a86]">
+                <button onclick="startNewChatThread()" title="New Chat Thread" class="hover:text-white transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
+                  </svg>
+                </button>
+                <button onclick="toggleAllDiffs()" title="Toggle Diff Inspector" class="hover:text-white transition-colors">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="15" y1="4" x2="15" y2="20"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="relative flex min-h-[560px] sm:min-h-[620px] max-h-[750px] sm:max-h-[710px]">
+
+            <div
+              id="workspace-mobile-backdrop"
+              onclick="toggleMobileSidebar()"
+              class="fixed sm:hidden inset-0 z-30 hidden bg-black/60 backdrop-blur-[2px]"
+            ></div>
+
+            <div class="hidden sm:flex w-12 shrink-0 bg-obsidian-950 border-r border-obsidian-700 py-3.5 flex-col items-center justify-between select-none">
+              <div class="flex flex-col items-center gap-3">
+                <button onclick="selectWorkspaceRail('home')" class="w-9 h-9 rounded-xl bg-[#292927] text-white flex items-center justify-center transition-colors" title="Workspace Home">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3.2L3 10.5V20a1 1 0 001 1h5v-6h6v6h5a1 1 0 001-1v-9.5L12 3.2z"/>
+                  </svg>
+                </button>
+                <button onclick="toggleAllDiffs()" class="w-9 h-9 rounded-xl text-[#8a8a86] hover:text-white hover:bg-obsidian-850 flex items-center justify-center transition-colors" title="Toggle Inline Diffs">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="9" y1="9" x2="9" y2="20"/>
+                  </svg>
+                </button>
+                <button onclick="openRequestDrawer()" class="w-9 h-9 rounded-xl text-[#8a8a86] hover:text-white hover:bg-obsidian-850 flex items-center justify-center transition-colors" title="OpenCode & CLI Provisioning">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="w-7 h-7 rounded-lg bg-[#262624] border border-[#363633] text-[11px] font-semibold text-white flex items-center justify-center" title="Workspace Profile: A">
+                A
+              </div>
+            </div>
+
+            <div id="workspace-sidebar" class="hidden sm:flex absolute sm:static inset-y-0 left-0 z-40 w-[260px] sm:w-[228px] shrink-0 bg-[#141413] border-r border-obsidian-700 p-3.5 flex-col justify-between select-none shadow-2xl sm:shadow-none">
+              <div>
+                <div class="flex items-center justify-between mb-5 px-1">
+                  <div class="flex items-center gap-1.5">
+                    <span class="inline-grid grid-cols-2 gap-0.5 mr-0.5">
+                      <span class="w-1.5 h-1.5 bg-white"></span>
+                      <span class="w-1.5 h-1.5 bg-white"></span>
+                      <span class="w-1.5 h-1.5 bg-white"></span>
+                      <span class="w-1.5 h-1.5 bg-transparent"></span>
+                      <span class="w-1.5 h-1.5 bg-white"></span>
+                      <span class="w-1.5 h-1.5 bg-white"></span>
+                    </span>
+                    <span class="font-display font-extrabold text-[19px] tracking-tight text-white">Collins</span>
+                  </div>
+                  <button onclick="focusWorkspaceComposer()" class="text-[#8a8a86] hover:text-white transition-colors" title="Search Workspace">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="7"/>
+                      <path stroke-linecap="round" d="M20 20l-3.5-3.5"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <button onclick="startNewChatThread()" class="w-full px-2 py-2 rounded-lg text-[#d4d4d0] hover:text-white hover:bg-[#222220] flex items-center gap-2.5 text-[13px] font-medium transition-colors mb-5">
+                  <svg class="w-4 h-4 text-[#9a9a95]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  <span>New chat</span>
+                </button>
+
+                <button onclick="openGetStarted('ads')" class="w-full px-2 py-2 rounded-lg text-[#d4d4d0] hover:text-white hover:bg-[#222220] flex items-center gap-2.5 text-[13px] font-medium transition-colors mb-2 group">
+                  <svg class="w-4 h-4 text-[#67dcf2]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <rect x="2" y="4" width="20" height="13" rx="2"/>
+                    <path stroke-linecap="round" d="M8 21h8M12 17v4"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 12l2-3 2 2 3-4 3 5" />
+                  </svg>
+                  <span class="truncate">Ad dashboard</span>
+                  <span class="ml-auto px-1.5 py-0.5 rounded bg-[#1fa8f5]/20 text-[#67dcf2] text-[9px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">NEW</span>
+                </button>
+
+                <div class="px-2 mb-2 text-[11px] font-medium text-[#7c7c77]">
+                  Projects
+                </div>
+
+                <div>
+                  <button onclick="toggleFolder()" class="w-full px-1.5 py-1.5 rounded-lg text-[#d4d4d0] hover:text-white flex items-center gap-2 text-[13px] font-medium">
+                    <svg id="folder-chevron" class="w-3.5 h-3.5 text-[#7c7c77] transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                    <svg class="w-4 h-4 text-[#9a9a95]" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                    <span>acme-web</span>
+                  </button>
+
+                  <div id="thread-list-container" class="mt-1 space-y-0.5 pl-3"></div>
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-obsidian-700">
+                <div class="px-2.5 py-2 rounded-lg bg-obsidian-900 border border-obsidian-700 font-mono text-[11px]">
+                  <div class="flex items-center justify-between text-[#9a9a95]">
+                    <span>METERED TIER</span>
+                    <span class="text-[#67dcf2] font-semibold dynamic-zero-price">Rp 0</span>
+                  </div>
+                  <div class="mt-1 text-white flex items-center justify-between">
+                    <span>Ad Token Balance</span>
+                    <span id="ad-sidebar-tokens" class="text-[10px] text-[#1fa8f5] font-mono">0 tok</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex-1 bg-obsidian-900 flex flex-col justify-between overflow-hidden">
+
+              <div id="workspace-stream" class="flex-1 overflow-y-auto ide-scroll px-5 sm:px-8 pt-4 pb-6 space-y-5"></div>
+
+              <div class="px-5 sm:px-8 pb-5 pt-2 bg-obsidian-900 space-y-3">
+
+                <div class="rounded-xl bg-[#1e1e1c] border border-[#2e2e2b] focus-within:border-[#4a4a46] transition-colors p-3.5">
+                  <form onsubmit="handleWorkspaceSubmit(event)">
+                    <textarea
+                      id="workspace-composer-input"
+                      rows="2"
+                      readonly
+                      placeholder="Preview only — install Collins to start a session"
+                      class="w-full bg-transparent text-[13.5px] text-[#ecece8] placeholder-[#787874] focus:outline-none resize-none font-sans leading-relaxed cursor-pointer"
+                      onclick="openGetStarted('composer')"
+                      onkeydown="if(event.key === 'Enter') { event.preventDefault(); openGetStarted('composer'); }"
+                    ></textarea>
+
+                    <div class="flex items-center gap-1.5 flex-wrap pb-2.5 pt-1 font-mono">
+                      <span class="text-[10px] text-[#787874] uppercase mr-1">Run:</span>
+                      <button type="button" onclick="triggerQuickPrompt('Add Cmd+Shift+L keyboard shortcut for the dark mode toggle and run bun test')" class="text-[11px] px-2.5 py-0.5 rounded bg-[#272725] hover:bg-[#32322f] text-[#c8c8c4] border border-[#363633] transition-colors">
+                        + Cmd+Shift+L shortcut
+                      </button>
+                      <button type="button" onclick="triggerQuickPrompt('/opencode sync @src/lib/theme.ts with mobile workspace')" class="text-[11px] px-2.5 py-0.5 rounded bg-[#272725] hover:bg-[#32322f] text-[#c8c8c4] border border-[#363633] transition-colors">
+                        /opencode sync
+                      </button>
+                      <button type="button" onclick="triggerQuickPrompt('Verify zero race conditions across 100 iterations with Argon Ultra')" class="text-[11px] px-2.5 py-0.5 rounded bg-[#272725] hover:bg-[#32322f] text-[#c8c8c4] border border-[#363633] transition-colors">
+                        @argon stress-test
+                      </button>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1.5 border-t border-[#2a2a27]">
+                      <div class="relative">
+                        <button
+                          type="button"
+                          onclick="toggleModelDropdown()"
+                          id="composer-model-btn"
+                          class="inline-flex items-center gap-2 text-[12.5px] font-medium text-[#9e9e99] hover:text-white py-1 px-1.5 rounded-md hover:bg-[#292926] transition-colors"
+                        >
+                          <span class="w-2 h-2 rounded-full bg-[#3ad0f8]" id="composer-model-dot"></span>
+                          <span id="composer-model-label">Claude Haiku 5.5</span>
+                          <svg class="w-3.5 h-3.5 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                          <span class="ml-1 px-1.5 py-0.2 rounded bg-[#1fa8f5]/15 text-[#67dcf2] font-mono text-[10px] dynamic-zero-price">Rp 0</span>
+                        </button>
+
+                        <div id="composer-model-menu" class="hidden absolute left-0 bottom-9 w-[270px] sm:w-72 max-w-[calc(100vw-3rem)] rounded-xl bg-obsidian-950 border border-obsidian-600 shadow-2xl p-1.5 z-50">
+                          <div class="px-2.5 py-1.5 text-[10px] font-sans tracking-wide text-[#8a8a86] flex items-center justify-between border-b border-obsidian-700 mb-1">
+                            <span>Frontier Pool</span>
+                            <span class="text-[#67dcf2] font-semibold">ALL <span class="dynamic-zero-price">Rp 0</span></span>
+                          </div>
+                          <button type="button" onclick="selectWorkspaceModel('Sonnet 4.5 Frontier', 'bg-[#3ad0f8]')" class="w-full px-2.5 py-2 rounded-lg hover:bg-obsidian-800 flex items-center justify-between text-left transition-colors">
+                            <div>
+                              <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-[#3ad0f8]"></span> Sonnet 4.5 Frontier
+                              </div>
+                              <div class="text-[11px] text-[#8a8a86]">High-velocity full-stack UI & TypeScript</div>
+                            </div>
+                            <span class="font-mono text-[10px] text-[#67dcf2] dynamic-zero-price">Rp 0</span>
+                          </button>
+                          <button type="button" onclick="selectWorkspaceModel('Opus 4.5 Deep Reasoner', 'bg-[#1fa8f5]')" class="w-full px-2.5 py-2 rounded-lg hover:bg-obsidian-800 flex items-center justify-between text-left transition-colors">
+                            <div>
+                              <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-[#1fa8f5]"></span> Opus 4.5 Deep Reasoner
+                              </div>
+                              <div class="text-[11px] text-[#8a8a86]">Zero-shot multi-file systems architecture</div>
+                            </div>
+                            <span class="font-mono text-[10px] text-[#67dcf2] dynamic-zero-price">Rp 0</span>
+                          </button>
+                          <button type="button" onclick="selectWorkspaceModel('Tera 2.0 (2M Context)', 'bg-[#26b9d9]')" class="w-full px-2.5 py-2 rounded-lg hover:bg-obsidian-800 flex items-center justify-between text-left transition-colors">
+                            <div>
+                              <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-[#26b9d9]"></span> Tera 2.0 (2M Context)
+                              </div>
+                              <div class="text-[11px] text-[#8a8a86]">Whole-monorepo indexing & synthesis</div>
+                            </div>
+                            <span class="font-mono text-[10px] text-[#67dcf2] dynamic-zero-price">Rp 0</span>
+                          </button>
+                          <button type="button" onclick="selectWorkspaceModel('Argon Systems Ultra', 'bg-[#67dcf2]')" class="w-full px-2.5 py-2 rounded-lg hover:bg-obsidian-800 flex items-center justify-between text-left transition-colors">
+                            <div>
+                              <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-[#67dcf2]"></span> Argon Systems Ultra
+                              </div>
+                              <div class="text-[11px] text-[#8a8a86]">Sub-180ms Rust/Go/C++ & autonomous tests</div>
+                            </div>
+                            <span class="font-mono text-[10px] text-[#67dcf2] dynamic-zero-price">Rp 0</span>
+                          </button>
+                          <button type="button" onclick="selectWorkspaceModel('Claude Haiku 5.5', 'bg-[#f4fbff]')" class="w-full px-2.5 py-2 rounded-lg hover:bg-obsidian-800 flex items-center justify-between text-left transition-colors">
+                            <div>
+                              <div class="text-xs font-semibold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-[#f4fbff]"></span> Claude Haiku 5.5
+                              </div>
+                              <div class="text-[11px] text-[#8a8a86]">Instant inline edits & lint repair</div>
+                            </div>
+                            <span class="font-mono text-[10px] text-[#67dcf2] dynamic-zero-price">Rp 0</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onclick="triggerQuickPrompt('@src/components/theme-toggle.tsx Add system dark mode listener + unit test')"
+                          title="Attach File Context"
+                          class="w-7 h-7 rounded-lg text-[#9a9a95] hover:text-white hover:bg-[#2c2c29] flex items-center justify-center transition-colors"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="submit"
+                          title="Submit Prompt"
+                          class="w-7 h-7 rounded-lg bg-[#2c2c29] hover:bg-white hover:text-[#111110] text-[#d4d4d0] flex items-center justify-center transition-colors border border-[#3c3c38]"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+          <div id="workspace-terminal-drawer" class="hidden bg-[#0d0d0c] border-t border-obsidian-700 px-6 py-4 font-mono text-xs text-[#d4d4d0]">
+            <div class="flex items-center justify-between text-[11px] text-[#8a8a86] mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#67dcf2]"></span>
+                <span>COLLINS SANDBOX RUNNER // bun v1.2.4 // OPENCODE DAEMON CONNECTED</span>
+              </div>
+              <button onclick="toggleTerminalDrawer()" class="hover:text-white">CLOSE [×]</button>
+            </div>
+            <div class="space-y-1 text-[11.5px] leading-relaxed">
+              <div><span class="text-[#67dcf2]">➜</span> <span class="text-white">acme-web</span> <span class="text-[#787874]">git:(main)</span> bun test</div>
+              <div class="text-[#9e9e99]">PASS src/components/__tests__/theme-toggle.test.tsx (14 tests) <span class="text-[#67dcf2]">6ms</span></div>
+              <div class="text-[#9e9e99]">PASS src/lib/__tests__/theme.test.ts (18 tests) <span class="text-[#67dcf2]">4ms</span></div>
+              <div class="text-[#9e9e99]">PASS src/app/settings/__tests__/page.test.tsx (10 tests) <span class="text-[#67dcf2]">9ms</span></div>
+              <div class="text-[#67dcf2] font-semibold">42 passed · 0 failed · Total time 19.00ms · Cost: <span class="dynamic-zero-price">Rp 0</span></div>
+            </div>
+          </div>
+
+          <div class="pointer-events-none absolute top-[0.6rem] right-20 z-20 hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0d0d0c]/90 border border-[#333330] font-mono text-[10px] text-[#9a9a95]">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#febc2e]"></span> Read-only preview
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 text-[12px] text-[#c6ecff]/75">
+          <span>Prompts, new threads and the ad dashboard unlock in the installed workstation.</span>
+          <button onclick="openGetStarted()" class="self-start sm:self-auto font-mono text-[11.5px] text-[#67dcf2] hover:text-white transition-colors">
+            Open the real thing →
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="models-section" class="py-24 sm:py-36 px-3 sm:px-6 lg:px-10 border-t border-white/15 relative">
+      <div class="max-w-[1440px] mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16 sm:mb-24 items-start">
+          <div class="lg:col-span-2 pt-2">
+            <div class="font-sans text-[10px] tracking-[0.14em] text-[#67dcf2]/75">Nº 03</div>
+            <div class="font-editorial italic text-[22px] leading-none text-[#dff4ff] mt-1.5">Models</div>
+          </div>
+          <div class="lg:col-span-7">
+            <h2 class="font-display font-extrabold text-3xl sm:text-5xl lg:text-[54px] text-[#f4fbff] tracking-tight leading-[1.06]">
+              Four models. <br />
+              Pick the one that fits the job.
+            </h2>
+          </div>
+          <div class="lg:col-span-3 text-xs sm:text-sm text-[#e6f5ff]/85 leading-relaxed lg:pt-2">
+            All four cost <strong class="font-mono text-white underline decoration-[#67dcf2] underline-offset-4 dynamic-zero-price">Rp 0</strong>. Switch per prompt — quick fixes on Sonnet, gnarly refactors on Opus, whole-repo questions on Tera.
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-12">
+
+          <div class="architectural-column pt-8 sm:pt-10 pl-5 sm:pl-6 pr-5 sm:pr-8 flex flex-col justify-between min-h-[290px] sm:min-h-[380px] group">
+            <div>
+              <div class="flex items-center justify-between font-sans text-[11px] tracking-[0.1em] text-[#c6ecff] mb-6">
+                <span>SONNET 4.5</span>
+                <span class="px-2 py-0.5 rounded bg-white/15 text-white dynamic-zero-price">Rp 0</span>
+              </div>
+              <h3 class="font-display font-bold text-3xl text-white tracking-tight mb-4 group-hover:text-[#67dcf2] transition-colors">
+                Sonnet
+              </h3>
+              <p class="text-xs sm:text-sm text-white/85 leading-relaxed">
+                High-velocity daily driver for full-stack UI surgery, TypeScript refactoring, and multi-file React/Next.js orchestration with 200K active context.
+              </p>
+            </div>
+
+            <div class="pt-10 space-y-5">
+              <div class="flex items-baseline justify-between border-b border-white/20 pb-3">
+                <span class="font-editorial italic text-3xl text-[#c6ecff]">.01</span>
+                <span class="font-mono text-xs text-[#67dcf2]">94.2% SWE-Verified · 115 tok/s</span>
+              </div>
+              <button
+                onclick="activateModelInWorkspace('Sonnet 4.5 Frontier', 'bg-[#3ad0f8]')"
+                class="w-full py-3 px-4 rounded-full frosted-pill hover:bg-white hover:text-[#041024] font-sans text-[12px] font-medium tracking-wide transition-all flex items-center justify-between"
+              >
+                <span>Load Sonnet</span>
+                <span>↗</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="architectural-column pt-8 sm:pt-10 pl-5 sm:pl-6 pr-5 sm:pr-8 flex flex-col justify-between min-h-[290px] sm:min-h-[380px] group">
+            <div>
+              <div class="flex items-center justify-between font-sans text-[11px] tracking-[0.1em] text-[#c6ecff] mb-6">
+                <span>OPUS 4.5</span>
+                <span class="px-2 py-0.5 rounded bg-white/15 text-white dynamic-zero-price">Rp 0</span>
+              </div>
+              <h3 class="font-display font-bold text-3xl text-white tracking-tight mb-4 group-hover:text-[#67dcf2] transition-colors">
+                Opus
+              </h3>
+              <p class="text-xs sm:text-sm text-white/85 leading-relaxed">
+                Deep zero-shot reasoning monolith for distributed systems architecture, subtle concurrency race conditions, and formal verification passes.
+              </p>
+            </div>
+
+            <div class="pt-10 space-y-5">
+              <div class="flex items-baseline justify-between border-b border-white/20 pb-3">
+                <span class="font-editorial italic text-3xl text-[#c6ecff]">.02</span>
+                <span class="font-mono text-xs text-[#67dcf2]">64K Deep Thinking Budget</span>
+              </div>
+              <button
+                onclick="activateModelInWorkspace('Opus 4.5 Deep Reasoner', 'bg-[#1fa8f5]')"
+                class="w-full py-3 px-4 rounded-full frosted-pill hover:bg-white hover:text-[#041024] font-sans text-[12px] font-medium tracking-wide transition-all flex items-center justify-between"
+              >
+                <span>Load Opus</span>
+                <span>↗</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="architectural-column pt-8 sm:pt-10 pl-5 sm:pl-6 pr-5 sm:pr-8 flex flex-col justify-between min-h-[290px] sm:min-h-[380px] group">
+            <div>
+              <div class="flex items-center justify-between font-sans text-[11px] tracking-[0.1em] text-[#c6ecff] mb-6">
+                <span>TERA 2.0</span>
+                <span class="px-2 py-0.5 rounded bg-white/15 text-white dynamic-zero-price">Rp 0</span>
+              </div>
+              <h3 class="font-display font-bold text-3xl text-white tracking-tight mb-4 group-hover:text-[#67dcf2] transition-colors">
+                Tera
+              </h3>
+              <p class="text-xs sm:text-sm text-white/85 leading-relaxed">
+                Massive 2,000,000-token repository memory. Holds your entire monorepo, git commit graph, OpenAPI specs, and SQL schemas in active context.
+              </p>
+            </div>
+
+            <div class="pt-10 space-y-5">
+              <div class="flex items-baseline justify-between border-b border-white/20 pb-3">
+                <span class="font-editorial italic text-3xl text-[#c6ecff]">.03</span>
+                <span class="font-mono text-xs text-[#67dcf2]">2,000,000 Context · 99.7% Recall</span>
+              </div>
+              <button
+                onclick="activateModelInWorkspace('Tera 2.0 (2M Context)', 'bg-[#26b9d9]')"
+                class="w-full py-3 px-4 rounded-full frosted-pill hover:bg-white hover:text-[#041024] font-sans text-[12px] font-medium tracking-wide transition-all flex items-center justify-between"
+              >
+                <span>Load Tera</span>
+                <span>↗</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="architectural-column pt-8 sm:pt-10 pl-5 sm:pl-6 pr-5 sm:pr-8 flex flex-col justify-between min-h-[290px] sm:min-h-[380px] group">
+            <div>
+              <div class="flex items-center justify-between font-sans text-[11px] tracking-[0.1em] text-[#c6ecff] mb-6">
+                <span>ARGON ULTRA</span>
+                <span class="px-2 py-0.5 rounded bg-white/15 text-white dynamic-zero-price">Rp 0</span>
+              </div>
+              <h3 class="font-display font-bold text-3xl text-white tracking-tight mb-4 group-hover:text-[#67dcf2] transition-colors">
+                Argon
+              </h3>
+              <p class="text-xs sm:text-sm text-white/85 leading-relaxed">
+                Built for systems code. Rust, Go and C++ with a habit of running the tests before it tells you it's done — and running them again under load.
+              </p>
+            </div>
+
+            <div class="pt-10 space-y-5">
+              <div class="flex items-baseline justify-between border-b border-white/20 pb-3">
+                <span class="font-editorial italic text-3xl text-[#c6ecff]">.04</span>
+                <span class="font-mono text-xs text-[#67dcf2]">~180ms first token</span>
+              </div>
+              <button
+                onclick="activateModelInWorkspace('Argon Systems Ultra', 'bg-[#67dcf2]')"
+                class="w-full py-3 px-4 rounded-full frosted-pill hover:bg-white hover:text-[#041024] font-sans text-[12px] font-medium tracking-wide transition-all flex items-center justify-between"
+              >
+                <span>Load Argon</span>
+                <span>↗</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <section id="mobile-section" class="py-24 sm:py-36 px-3 sm:px-6 lg:px-10 border-t border-white/15 relative">
+      <div class="max-w-[1440px] mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-14 lg:gap-10 items-center">
+
+          <div class="lg:col-span-5 space-y-8">
+            <div>
+              <div class="flex items-baseline gap-3 mb-3">
+                <span class="font-sans text-[10px] tracking-[0.14em] text-[#67dcf2]/75">Nº 04</span>
+                <span class="font-editorial italic text-[20px] sm:text-[22px] leading-none text-[#dff4ff]">Pocket workstation</span>
+              </div>
+              <h2 class="font-display font-extrabold text-3xl sm:text-5xl text-white tracking-tight leading-[1.06]">
+                Review on your phone. <br />
+                <span class="font-editorial italic font-normal text-4xl sm:text-[52px] text-[#c6ecff]">Your laptop does the work.</span>
+              </h2>
+              <p class="mt-5 text-xs sm:text-sm text-white/80 leading-relaxed max-w-md">
+                Threads sync between desktop and phone. Approve a diff on the train, kick off a test run from the couch, dictate the next task when your hands are full.
+              </p>
+            </div>
+
+            <div class="space-y-2.5 font-sans">
+              <button onclick="switchMobileScreen('agent')" id="mob-btn-agent" class="w-full p-4 rounded-2xl bg-[#041024]/85 border border-white text-left transition-all flex items-center justify-between">
+                <span><span class="block text-sm font-semibold text-white">Diffs</span><span class="block text-xs text-white/65 mt-0.5">Read and approve changes</span></span>
+                <span class="font-mono text-[11px] text-[#67dcf2]">01</span>
+              </button>
+              <button onclick="switchMobileScreen('terminal')" id="mob-btn-terminal" class="w-full p-4 rounded-2xl frosted-pill hover:bg-[#082046]/60 text-left transition-all flex items-center justify-between">
+                <span><span class="block text-sm font-semibold text-white">Tests</span><span class="block text-xs text-white/65 mt-0.5">Watch the suite run live</span></span>
+                <span class="font-mono text-[11px] text-[#67dcf2]">02</span>
+              </button>
+              <button onclick="switchMobileScreen('voice')" id="mob-btn-voice" class="w-full p-4 rounded-2xl frosted-pill hover:bg-[#082046]/60 text-left transition-all flex items-center justify-between">
+                <span><span class="block text-sm font-semibold text-white">Voice</span><span class="block text-xs text-white/65 mt-0.5">Say the task, get a PR</span></span>
+                <span class="font-mono text-[11px] text-[#67dcf2]">03</span>
+              </button>
+              <button onclick="switchMobileScreen('opencode')" id="mob-btn-opencode" class="w-full p-4 rounded-2xl frosted-pill hover:bg-[#082046]/60 text-left transition-all flex items-center justify-between">
+                <span><span class="block text-sm font-semibold text-white">OpenCode tunnel</span><span class="block text-xs text-white/65 mt-0.5">Phone talks to your local daemon</span></span>
+                <span class="font-mono text-[11px] text-[#67dcf2]">04</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 flex justify-center relative px-2 sm:px-0">
+            <div class="pointer-events-none absolute w-[280px] sm:w-[420px] h-[280px] sm:h-[420px] rounded-full bg-[#e6f5ff]/25 blur-[90px]"></div>
+
+            <div class="relative z-10 w-full max-w-[336px] sm:max-w-[368px] h-[630px] sm:h-[680px] rounded-[44px] sm:rounded-[50px] bg-obsidian-950 shadow-titanium overflow-hidden flex flex-col justify-between border border-obsidian-700">
+
+              <div class="pt-3.5 pb-2 px-6 bg-obsidian-950 flex items-center justify-between font-mono text-[11px] text-white select-none">
+                <span>09:41</span>
+                <div class="w-24 h-5 rounded-full bg-black border border-obsidian-700 flex items-center justify-between px-2.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#67dcf2]"></span>
+                  <span class="text-[9px] text-[#9e9e99]">COLLINS</span>
+                </div>
+                <span class="text-[10px] text-[#67dcf2]">5G · SYNC</span>
+              </div>
+
+              <div class="px-4 py-2.5 bg-[#141413] border-b border-obsidian-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="inline-grid grid-cols-2 gap-0.5">
+                    <span class="w-1 h-1 bg-white"></span>
+                    <span class="w-1 h-1 bg-white"></span>
+                    <span class="w-1 h-1 bg-white"></span>
+                    <span class="w-1 h-1 bg-transparent"></span>
+                    <span class="w-1 h-1 bg-white"></span>
+                    <span class="w-1 h-1 bg-white"></span>
+                  </span>
+                  <span class="font-display font-bold text-sm text-white">collins.dev/m/acme-web</span>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-obsidian-800 font-mono text-[10px] text-[#67dcf2] font-semibold dynamic-zero-price">
+                  Rp 0
+                </span>
+              </div>
+
+              <div id="mobile-screen-content" class="flex-1 overflow-y-auto ide-scroll p-4 bg-obsidian-900 space-y-3.5 text-left"></div>
+
+              <div class="p-3 bg-obsidian-950 border-t border-obsidian-700 space-y-2.5">
+                <div class="rounded-xl bg-[#1e1e1c] border border-[#2e2e2b] px-3 py-2 flex items-center justify-between">
+                  <input
+                    id="mobile-composer-input"
+                    type="text"
+                    placeholder="Dispatch to Sonnet or /opencode..."
+                    class="bg-transparent text-xs text-white placeholder-[#787874] focus:outline-none w-full"
+                    onkeydown="if(event.key === 'Enter') handleMobilePromptSubmit()"
+                  />
+                  <button onclick="handleMobilePromptSubmit()" class="w-6 h-6 rounded-lg bg-white text-[#041024] flex items-center justify-center text-xs font-bold shrink-0 ml-2">
+                    ↑
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-4 gap-1 font-mono text-[10px] text-[#8a8a86]">
+                  <button onclick="switchMobileScreen('agent')" id="mob-tab-agent" class="py-1.5 rounded-lg bg-obsidian-800 text-white text-center">
+                    Diffs
+                  </button>
+                  <button onclick="switchMobileScreen('terminal')" id="mob-tab-terminal" class="py-1.5 rounded-lg hover:bg-obsidian-850 text-center">
+                    Tests
+                  </button>
+                  <button onclick="switchMobileScreen('voice')" id="mob-tab-voice" class="py-1.5 rounded-lg hover:bg-obsidian-850 text-center">
+                    Voice
+                  </button>
+                  <button onclick="switchMobileScreen('opencode')" id="mob-tab-opencode" class="py-1.5 rounded-lg hover:bg-obsidian-850 text-center">
+                    OpenCode
+                  </button>
+                </div>
+
+                <div class="w-28 h-1 bg-obsidian-600 rounded-full mx-auto"></div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <section id="integrations-section" class="py-24 sm:py-36 px-3 sm:px-6 lg:px-10 border-t border-white/15 relative">
+      <div class="max-w-[1440px] mx-auto">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-14 items-end">
+          <div class="lg:col-span-8">
+            <div class="flex items-baseline gap-3 mb-3">
+              <span class="font-sans text-[10px] tracking-[0.14em] text-[#67dcf2]/75">Nº 05</span>
+              <span class="font-editorial italic text-[20px] sm:text-[22px] leading-none text-[#dff4ff]">The universal protocol</span>
+            </div>
+            <h2 class="font-display font-extrabold text-3xl sm:text-5xl lg:text-[54px] text-white tracking-tight leading-[1.05]">
+              Connected to everything. <br />
+              <span class="font-editorial italic font-normal text-4xl sm:text-6xl text-[#c6ecff]">
+                First-class native OpenCode engine.
+              </span>
+            </h2>
+          </div>
+          <div class="lg:col-span-4 text-xs sm:text-sm text-white/85 leading-relaxed">
+            Point <strong>OpenCode</strong>, Neovim, VS Code, Cursor, or any MCP client to Collins in one line. Zero API keys or credit cards — every token runs at <strong class="font-mono text-white underline dynamic-zero-price">Rp 0</strong>.
+          </div>
+        </div>
+
+        <div class="rounded-[26px] bg-obsidian-950 border border-obsidian-700 shadow-ide overflow-hidden mb-16">
+          <div class="grid grid-cols-1 lg:grid-cols-12">
+
+            <div class="lg:col-span-5 p-7 sm:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-obsidian-700">
+              <div class="space-y-5">
+                <div class="inline-flex items-baseline gap-2 px-3 py-1 rounded-full bg-[#1fa8f5]/15 border border-[#67dcf2]/35 text-[#67dcf2] text-[11px]">
+                  <span class="font-sans font-medium">Flagship integration</span>
+                  <span class="text-[#67dcf2]/40">·</span>
+                  <span class="font-sans">OpenCode v0.2+</span>
+                </div>
+
+                <h3 class="font-display font-bold text-2xl sm:text-3xl text-white tracking-tight">
+                  OpenCode × Collins Frontier Mesh
+                </h3>
+
+                <p class="text-xs sm:text-sm text-[#a6a6a0] leading-relaxed">
+                  Bind your terminal <code class="font-mono text-white">opencode</code> workflow directly to Collins. Switch between <strong>Sonnet 4.5</strong>, <strong>Opus 4.5</strong>, <strong>Tera 2.0</strong>, and <strong>Argon Ultra</strong> inside OpenCode with bidirectional sync to the Collins web and mobile workspaces.
+                </p>
+
+                <div class="space-y-2 pt-2 font-mono text-xs">
+                  <button onclick="switchOpenCodeTab('cli')" id="oc-tab-cli" class="w-full px-4 py-3 rounded-xl bg-white text-[#041024] font-semibold flex items-center justify-between transition-all">
+                    <span>01. One-Line CLI Flag</span>
+                    <span>→</span>
+                  </button>
+                  <button onclick="switchOpenCodeTab('json')" id="oc-tab-json" class="w-full px-4 py-3 rounded-xl bg-obsidian-850 text-[#d4d4d0] hover:text-white flex items-center justify-between transition-all">
+                    <span>02. ~/.config/opencode/opencode.json</span>
+                    <span>→</span>
+                  </button>
+                  <button onclick="switchOpenCodeTab('mcp')" id="oc-tab-mcp" class="w-full px-4 py-3 rounded-xl bg-obsidian-850 text-[#d4d4d0] hover:text-white flex items-center justify-between transition-all">
+                    <span>03. Bidirectional MCP Bridge</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="pt-6 mt-6 border-t border-obsidian-700 flex items-center justify-between gap-3">
+                <span class="font-mono text-[11px] text-[#8a8a86]">
+                  Token Billing: <strong class="text-[#67dcf2] dynamic-zero-price">Rp 0</strong>
+                </span>
+                <button onclick="copyOpenCodeSnippet()" id="copy-oc-btn" class="px-5 py-2.5 rounded-full bg-[#3ad0f8] hover:bg-[#67dcf2] text-[#041024] font-mono font-semibold text-xs transition-all">
+                  Copy Snippet
+                </button>
+              </div>
+            </div>
+
+            <div class="lg:col-span-7 bg-[#0c0c0b] p-7 sm:p-10 flex flex-col justify-between font-mono text-xs">
+              <div class="flex items-center justify-between pb-4 mb-4 border-b border-obsidian-700 text-[#8a8a86]">
+                <span id="oc-code-filename" class="text-white">TERMINAL // OPENCODE PROVIDER BRIDGE</span>
+                <span class="text-[#67dcf2]">RATE: <strong class="dynamic-zero-price">Rp 0</strong> / ∞</span>
+              </div>
+
+              <pre id="oc-code-content" class="text-[#e6e6e3] overflow-x-auto leading-relaxed text-xs sm:text-[13px] my-auto"></pre>
+
+              <div class="mt-6 pt-4 border-t border-obsidian-700 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#8a8a86]">
+                <span>Click any integration in the ledger below to preview its live connection command here.</span>
+                <button onclick="selectThread('opencode-sync'); document.getElementById('workspace-section').scrollIntoView({behavior:'smooth'});" class="text-[#67dcf2] hover:underline">
+                  Inspect OpenCode Thread in Workspace ↑
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap font-mono text-xs pb-1 sm:pb-0">
+            <button onclick="filterIntegrations('all')" data-cat="all" class="int-cat-btn shrink-0 px-4 py-2 rounded-full bg-white text-[#041024] font-semibold transition-all">
+              ALL (20)
+            </button>
+            <button onclick="filterIntegrations('editors')" data-cat="editors" class="int-cat-btn shrink-0 px-4 py-2 rounded-full frosted-pill text-white hover:bg-white/20 transition-all">
+              TERMINALS & IDES
+            </button>
+            <button onclick="filterIntegrations('git')" data-cat="git" class="int-cat-btn shrink-0 px-4 py-2 rounded-full frosted-pill text-white hover:bg-white/20 transition-all">
+              GIT & CI/CD
+            </button>
+            <button onclick="filterIntegrations('cloud')" data-cat="cloud" class="int-cat-btn shrink-0 px-4 py-2 rounded-full frosted-pill text-white hover:bg-white/20 transition-all">
+              CLOUD, DB & INFRA
+            </button>
+            <button onclick="filterIntegrations('workflow')" data-cat="workflow" class="int-cat-btn shrink-0 px-4 py-2 rounded-full frosted-pill text-white hover:bg-white/20 transition-all">
+              MCP & WORKFLOWS
+            </button>
+          </div>
+
+          <div class="w-full sm:w-72">
+            <input
+              id="integration-search"
+              type="text"
+              oninput="renderIntegrationsGrid()"
+              placeholder="Filter OpenCode, Neovim, MCP..."
+              class="w-full px-4 py-2.5 rounded-full frosted-pill text-xs font-mono text-white placeholder-[#c6ecff]/70 focus:outline-none focus:border-white"
+            />
+          </div>
+        </div>
+
+        <div id="integrations-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-l border-white/25"></div>
+
+      </div>
+    </section>
+
+    <footer class="border-t border-white/20 bg-[#041024]/85 backdrop-blur-xl py-16 px-4 sm:px-8 text-xs text-[#c6ecff]/80">
+      <div class="max-w-[1440px] mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <span class="font-display font-extrabold text-lg tracking-[0.18em] text-white uppercase">COLLINS</span>
+            <span class="font-mono text-[11px] px-2.5 py-0.5 rounded-full border border-[#67dcf2]/40 text-[#67dcf2] dynamic-zero-full">
+              Rp 0 / Selamanya
+            </span>
+          </div>
+          <p class="text-[#c6ecff]/70 max-w-md">
+            A coding agent for desktop, phone and OpenCode. Sonnet 4.5, Opus 4.5, Tera 2.0 and Argon Ultra — paid for by sponsors, never by you.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-[#dff4ff]">
+          <a href="#hero-stage" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">01</span>
+            <span class="font-editorial italic text-[16px] leading-none">Stage</span>
+          </a>
+          <a href="#workspace-section" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">02</span>
+            <span class="font-editorial italic text-[16px] leading-none">Workstation</span>
+          </a>
+          <a href="#models-section" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">03</span>
+            <span class="font-editorial italic text-[16px] leading-none">Models</span>
+          </a>
+          <a href="#mobile-section" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">04</span>
+            <span class="font-editorial italic text-[16px] leading-none">Pocket</span>
+          </a>
+          <a href="#integrations-section" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">05</span>
+            <span class="font-editorial italic text-[16px] leading-none">OpenCode</span>
+          </a>
+          <button onclick="openGetStarted('ads')" class="group inline-flex items-baseline gap-1.5 hover:text-white transition-colors">
+            <span class="font-sans text-[9px] tracking-[0.1em] text-[#67dcf2]/60 group-hover:text-[#67dcf2]">↗</span>
+            <span class="font-editorial italic text-[16px] leading-none">Ad rewards</span>
+          </button>
+          <button onclick="openKineticIntro()" class="font-editorial italic text-[16px] text-[#67dcf2] hover:text-white transition-colors underline decoration-[#67dcf2]/40 underline-offset-4">Play the manifesto</button>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    // ==========================================================================
+    // 1. REAL-TIME THREE.JS 3D QUANTUM PRISM + OPTICAL VESSELS & CHROME LOOPS
+    //    - Preserves and upgrades the Quantum Prism & Gyroscope 3D architecture
+    //      with multi-shell studio optical glass refraction & machined gyro rings
+    //    - Supports 1-click live morphing between Quantum Prism & 7 Optical Vessels
+    // ==========================================================================
+    let vesselScene = null;
+    let vesselCamera = null;
+    let vesselRenderer = null;
+    let masterCenterGroup = null;
+    let quantumPrismSubGroup = null;
+    let opticalVesselsSubGroup = null;
+
+    let prismOuterMesh = null;
+    let prismInnerShellMesh = null;
+    let prismCoreLens = null;
+    let innerCoreWireframe = null;
+    let gyroRing1 = null;
+    let gyroRing2 = null;
+    let gyroRing3 = null;
+    let particlesGroup = null;
+
+    let vesselItems = [];
+    let leftChromeConnector = null;
+    let rightChromeConnector = null;
+    let glassUniforms = null;
+    let chromeUniforms = null;
+
+    let activeSculptureMode = 'prism'; // 'prism' or 'vessels'
+
+    const sculptureParams = {
+      spread: 1.0,
+      ior: 1.52,
+      dispersion: 1.0,
+      driftSpeed: 0.50,
+      targetCamZ: 6.30,
+      targetRotY: 0.14,
+      targetRotX: 0.06,
+      targetRotZ: -0.04,
+      targetOffsetX: 0.0,
+      scrollProgress: 0.0
+    };
+
+    // Lathe geometry generator for a thick-walled, smooth rounded glass capsule / cupped vessel
+    function createRoundedGlassVesselGeometry(radiusScale, heightScale) {
+      const pts = [];
+      const segments = 36;
+      const rOuter = 0.72 * radiusScale;
+      const rInner = 0.56 * radiusScale;
+      const hHalf = 0.56 * heightScale;
+
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = -Math.PI * 0.5 + t * Math.PI * 0.88;
+        const x = Math.max(0.001, Math.cos(angle) * rOuter * (0.92 + 0.08 * Math.sin(t * Math.PI)));
+        const y = Math.sin(angle) * hHalf;
+        pts.push(new THREE.Vector2(x, y));
+      }
+
+      const rimSteps = 10;
+      const lastOuter = pts[pts.length - 1];
+      const innerStartAngle = Math.PI * 0.38;
+      const firstInnerX = Math.cos(innerStartAngle) * rInner;
+      const firstInnerY = Math.sin(innerStartAngle) * (hHalf * 0.86);
+      const lipCenterX = (lastOuter.x + firstInnerX) * 0.5;
+      const lipCenterY = (lastOuter.y + firstInnerY) * 0.5 + 0.04;
+      const lipRadius = Math.hypot(lastOuter.x - firstInnerX, lastOuter.y - firstInnerY) * 0.5;
+
+      for (let i = 1; i <= rimSteps; i++) {
+        const a = (i / rimSteps) * Math.PI;
+        const x = Math.max(0.001, lipCenterX + Math.cos(a) * lipRadius);
+        const y = lipCenterY + Math.sin(a) * lipRadius;
+        pts.push(new THREE.Vector2(x, y));
+      }
+
+      for (let i = 0; i <= segments; i++) {
+        const t = 1.0 - i / segments;
+        const angle = -Math.PI * 0.5 + t * Math.PI * 0.88;
+        const x = Math.max(0.001, Math.cos(angle) * rInner);
+        const y = Math.sin(angle) * (hHalf * 0.82) + 0.05;
+        pts.push(new THREE.Vector2(x, y));
+      }
+
+      const geo = new THREE.LatheGeometry(pts, 64);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    function createSculpturalConnectorGroup(material, isLeft) {
+      const group = new THREE.Group();
+
+      const curvePts = isLeft
+        ? [
+            new THREE.Vector3(-1.18, 0.36, -0.15),
+            new THREE.Vector3(-0.35, 0.25, 0.22),
+            new THREE.Vector3(0.56, -0.08, 0.12),
+            new THREE.Vector3(0.60, -0.29, -0.12),
+            new THREE.Vector3(-0.28, -0.19, -0.24),
+            new THREE.Vector3(-1.08, 0.08, 0.08)
+          ]
+        : [
+            new THREE.Vector3(-0.68, 0.14, 0.12),
+            new THREE.Vector3(0.18, 0.22, -0.16),
+            new THREE.Vector3(1.15, 0.32, 0.08),
+            new THREE.Vector3(1.20, 0.06, -0.14),
+            new THREE.Vector3(0.22, -0.12, 0.18),
+            new THREE.Vector3(-0.64, -0.06, -0.10)
+          ];
+
+      const curve = new THREE.CatmullRomCurve3(curvePts, true, 'catmullrom', 0.5);
+      const tubeGeo = new THREE.TubeGeometry(curve, 100, 0.076, 28, true);
+      const tubeMesh = new THREE.Mesh(tubeGeo, material);
+      group.add(tubeMesh);
+
+      const collarGeo = new THREE.TorusGeometry(0.195, 0.044, 22, 52);
+      const collarMesh = new THREE.Mesh(collarGeo, material);
+      collarMesh.position.set(isLeft ? 0.28 : -0.25, isLeft ? -0.12 : 0.05, 0);
+      collarMesh.rotation.y = Math.PI * 0.38;
+      group.add(collarMesh);
+
+      return group;
+    }
+
+    function initQuantumPrismWebGL() {
+      const canvas = document.getElementById('vessels-webgl-canvas');
+      const container = document.getElementById('hero-stage');
+      if (!canvas || !container || typeof THREE === 'undefined') return;
+
+      vesselScene = new THREE.Scene();
+
+      const rect = container.getBoundingClientRect();
+      vesselCamera = new THREE.PerspectiveCamera(38, rect.width / rect.height, 0.1, 100);
+      vesselCamera.position.set(0, 0, sculptureParams.targetCamZ);
+
+      vesselRenderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      vesselRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      vesselRenderer.setSize(rect.width, rect.height);
+
+      masterCenterGroup = new THREE.Group();
+      vesselScene.add(masterCenterGroup);
+
+      quantumPrismSubGroup = new THREE.Group();
+      opticalVesselsSubGroup = new THREE.Group();
+      masterCenterGroup.add(quantumPrismSubGroup);
+      masterCenterGroup.add(opticalVesselsSubGroup);
+
+      glassUniforms = {
+        uTime: { value: 0 },
+        uIOR: { value: sculptureParams.ior },
+        uDispersion: { value: sculptureParams.dispersion },
+        uMouse: { value: new THREE.Vector2(0, 0) }
+      };
+
+      const vertexShader = `
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vViewPos;
+
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPosition.xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          vec4 mvPosition = viewMatrix * worldPosition;
+          vViewPos = -mvPosition.xyz;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `;
+
+      const glassFragmentShader = `
+        uniform float uTime;
+        uniform float uIOR;
+        uniform float uDispersion;
+        uniform vec2 uMouse;
+
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+        varying vec3 vViewPos;
+
+        vec3 sampleStudioEnvironment(vec3 dir) {
+          vec3 d = normalize(dir);
+          float y = d.y * 0.5 + 0.5;
+
+          vec3 deepNavy = vec3(0.03, 0.12, 0.28);
+          vec3 royalAzure = vec3(0.16, 0.46, 0.78);
+          vec3 electricCyan = vec3(0.24, 0.78, 0.98);
+          vec3 icyWhite = vec3(0.97, 0.995, 1.0);
+
+          vec3 col = mix(deepNavy, royalAzure, smoothstep(0.0, 0.46, y));
+          col = mix(col, electricCyan, smoothstep(0.36, 0.76, y + d.x * 0.28));
+          col = mix(col, icyWhite, smoothstep(0.66, 0.98, y + d.x * 0.35));
+
+          float wave1 = pow(max(0.0, sin(d.x * 4.8 + d.y * 3.8 + uTime * 0.38)), 10.0);
+          float wave2 = pow(max(0.0, cos(d.z * 5.4 - d.y * 4.2 - uTime * 0.28)), 12.0);
+
+          vec3 keyLight = normalize(vec3(0.58, 0.74, 0.44));
+          float keyGlow = pow(max(0.0, dot(d, keyLight)), 18.0);
+
+          return col + icyWhite * (wave1 * 0.46 + wave2 * 0.36 + keyGlow * 1.05);
+        }
+
+        void main() {
+          vec3 N = normalize(vWorldNormal);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+
+          if (dot(N, V) < 0.0) {
+            N = -N;
+          }
+
+          float spread = 0.034 * uDispersion;
+          float iorR = 1.0 / (uIOR - spread);
+          float iorG = 1.0 / uIOR;
+          float iorB = 1.0 / (uIOR + spread);
+
+          vec3 refrR = refract(-V, N, iorR);
+          vec3 refrG = refract(-V, N, iorG);
+          vec3 refrB = refract(-V, N, iorB);
+
+          vec3 envR = sampleStudioEnvironment(refrR);
+          vec3 envG = sampleStudioEnvironment(refrG);
+          vec3 envB = sampleStudioEnvironment(refrB);
+          vec3 refracted = vec3(envR.r, envG.g, envB.b);
+
+          vec3 R = reflect(-V, N);
+          vec3 reflected = sampleStudioEnvironment(R);
+
+          float cosTheta = clamp(dot(N, V), 0.0, 1.0);
+          float fresnel = 0.08 + 0.92 * pow(1.0 - cosTheta, 2.65);
+
+          vec3 L1 = normalize(vec3(0.55 + uMouse.x * 0.25, 0.78 + uMouse.y * 0.25, 0.65));
+          vec3 H1 = normalize(L1 + V);
+          float spec1 = pow(max(0.0, dot(N, H1)), 86.0);
+
+          vec3 L2 = normalize(vec3(-0.68, -0.35, 0.58));
+          vec3 H2 = normalize(L2 + V);
+          float spec2 = pow(max(0.0, dot(N, H2)), 44.0);
+
+          float rimEdge = smoothstep(0.22, 0.94, 1.0 - cosTheta);
+
+          vec3 color = mix(refracted * 0.94, reflected, fresnel * 0.78);
+          color += vec3(0.96, 0.995, 1.0) * rimEdge * 0.46;
+          color += vec3(1.0, 1.0, 1.0) * spec1 * 1.38;
+          color += vec3(0.46, 0.90, 1.0) * spec2 * 0.68;
+
+          float alpha = clamp(0.34 + fresnel * 0.56 + spec1 * 0.45 + rimEdge * 0.22, 0.0, 0.96);
+          gl_FragColor = vec4(color, alpha);
+        }
+      `;
+
+      const glassMaterial = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader: glassFragmentShader,
+        uniforms: glassUniforms,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+
+      // Liquid-Chrome & Smoked Sapphire Shader for Gyro Rings and Flanking Loop Connectors
+      chromeUniforms = {
+        uTime: { value: 0 },
+        uMouse: { value: new THREE.Vector2(0, 0) }
+      };
+
+      const chromeFragmentShader = `
+        uniform float uTime;
+        uniform vec2 uMouse;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPos;
+
+        void main() {
+          vec3 N = normalize(vWorldNormal);
+          vec3 V = normalize(cameraPosition - vWorldPos);
+          vec3 R = reflect(-V, N);
+
+          float band = sin(R.x * 5.2 + R.y * 6.2 + uTime * 0.5) * 0.5 + 0.5;
+          vec3 darkChrome = vec3(0.04, 0.14, 0.30);
+          vec3 midCyan = vec3(0.22, 0.68, 0.92);
+          vec3 brightSilver = vec3(0.97, 0.995, 1.0);
+
+          vec3 col = mix(darkChrome, midCyan, smoothstep(0.15, 0.64, band));
+          col = mix(col, brightSilver, smoothstep(0.66, 0.96, band));
+
+          vec3 L = normalize(vec3(0.52 + uMouse.x * 0.2, 0.82, 0.72));
+          vec3 H = normalize(L + V);
+          float spec = pow(max(0.0, dot(N, H)), 68.0);
+
+          gl_FragColor = vec4(col + brightSilver * spec, 0.94);
+        }
+      `;
+
+      const chromeMaterial = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader: chromeFragmentShader,
+        uniforms: chromeUniforms,
+        transparent: true,
+        depthWrite: true
+      });
+
+      // ====================================================================
+      // BUILD A: UPGRADED 3D QUANTUM PRISM + TRIPLE-AXIS GYROSCOPE RINGS
+      // ====================================================================
+      // 1. Outer Faceted Refractive Crystal Icosahedron
+      const prismOuterGeo = new THREE.IcosahedronGeometry(1.18, 0);
+      prismOuterMesh = new THREE.Mesh(prismOuterGeo, glassMaterial);
+      quantumPrismSubGroup.add(prismOuterMesh);
+
+      // 2. Second Nested Refractive Dodecahedron Chamber (creates rich internal glass depth)
+      const prismInnerGeo = new THREE.DodecahedronGeometry(0.84, 0);
+      prismInnerShellMesh = new THREE.Mesh(prismInnerGeo, glassMaterial);
+      quantumPrismSubGroup.add(prismInnerShellMesh);
+
+      // 3. Thick Optical Glass Cupped Torus Lens suspended inside the Prism
+      const lensGeo = createRoundedGlassVesselGeometry(0.76, 0.76);
+      prismCoreLens = new THREE.Mesh(lensGeo, glassMaterial);
+      prismCoreLens.rotation.x = Math.PI * 0.28;
+      quantumPrismSubGroup.add(prismCoreLens);
+
+      // 4. Inner Luminous Cyan Wireframe Octahedron Core
+      const innerWireGeo = new THREE.OctahedronGeometry(0.48, 0);
+      const innerWireMat = new THREE.MeshBasicMaterial({
+        color: 0xd6f6ff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.72
+      });
+      innerCoreWireframe = new THREE.Mesh(innerWireGeo, innerWireMat);
+      quantumPrismSubGroup.add(innerCoreWireframe);
+
+      // 5. Gyroscope Ring 1 (Outer Liquid-Chrome Gimbal with Machined Collar Clasps)
+      gyroRing1 = new THREE.Group();
+      const r1Torus = new THREE.Mesh(new THREE.TorusGeometry(1.62, 0.042, 24, 128), chromeMaterial);
+      gyroRing1.add(r1Torus);
+      // Two machined collar rings on opposite poles of Gyro Ring 1
+      const claspGeo = new THREE.TorusGeometry(0.085, 0.024, 16, 36);
+      const claspLeft = new THREE.Mesh(claspGeo, chromeMaterial);
+      claspLeft.position.set(-1.62, 0, 0);
+      claspLeft.rotation.x = Math.PI * 0.5;
+      const claspRight = new THREE.Mesh(claspGeo, chromeMaterial);
+      claspRight.position.set(1.62, 0, 0);
+      claspRight.rotation.x = Math.PI * 0.5;
+      gyroRing1.add(claspLeft, claspRight);
+      gyroRing1.rotation.x = Math.PI * 0.30;
+      quantumPrismSubGroup.add(gyroRing1);
+
+      // 6. Gyroscope Ring 2 (Middle Refractive Glass Gimbal Ring)
+      const r2Geo = new THREE.TorusGeometry(1.38, 0.055, 24, 120);
+      gyroRing2 = new THREE.Mesh(r2Geo, glassMaterial);
+      gyroRing2.rotation.y = Math.PI * 0.28;
+      quantumPrismSubGroup.add(gyroRing2);
+
+      // 7. Gyroscope Ring 3 (Inner High-Velocity Cyan-Chrome Track)
+      const r3Geo = new THREE.TorusGeometry(1.82, 0.018, 16, 120);
+      gyroRing3 = new THREE.Mesh(r3Geo, chromeMaterial);
+      gyroRing3.rotation.x = -Math.PI * 0.22;
+      gyroRing3.rotation.y = Math.PI * 0.18;
+      quantumPrismSubGroup.add(gyroRing3);
+
+      // 8. Orbital Constellation Particles
+      particlesGroup = new THREE.Group();
+      const pCount = 54;
+      const pGeo = new THREE.BufferGeometry();
+      const pPositions = new Float32Array(pCount * 3);
+      for (let i = 0; i < pCount; i++) {
+        const radius = 1.9 + Math.random() * 1.1;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = (Math.random() - 0.5) * Math.PI;
+        pPositions[i * 3] = radius * Math.cos(theta) * Math.cos(phi);
+        pPositions[i * 3 + 1] = radius * Math.sin(phi);
+        pPositions[i * 3 + 2] = radius * Math.sin(theta) * Math.cos(phi);
+      }
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      const pMat = new THREE.PointsMaterial({
+        color: 0xe8fbff,
+        size: 0.042,
+        transparent: true,
+        opacity: 0.82
+      });
+      particlesGroup.add(new THREE.Points(pGeo, pMat));
+      quantumPrismSubGroup.add(particlesGroup);
+
+      // ====================================================================
+      // Ready for instant 1-click toggle via the "Interactive 3D" pill
+      // ====================================================================
+      const vesselConfigs = [
+        { pos: [0.0, 0.02, 0.05], rot: [0.35, 0.2, -0.15], rScale: 0.78, hScale: 0.82, phase: 0.0 },
+        { pos: [-0.62, 0.52, 0.28], rot: [0.75, 0.48, 0.62], rScale: 1.05, hScale: 1.08, phase: 1.1 },
+        { pos: [-0.68, -0.46, 0.36], rot: [-0.68, 0.52, 1.15], rScale: 1.14, hScale: 1.12, phase: 2.2 },
+        { pos: [0.42, 0.58, -0.12], rot: [0.62, -0.55, -0.48], rScale: 1.08, hScale: 1.05, phase: 3.1 },
+        { pos: [0.86, 0.06, 0.22], rot: [0.18, -0.82, -1.25], rScale: 1.06, hScale: 1.10, phase: 4.0 },
+        { pos: [0.34, -0.62, 0.26], rot: [-0.82, -0.35, -0.88], rScale: 1.12, hScale: 1.06, phase: 5.0 },
+        { pos: [-0.08, 0.08, -0.64], rot: [-0.45, 0.25, 0.35], rScale: 1.18, hScale: 1.02, phase: 2.7 }
+      ];
+
+      vesselItems = vesselConfigs.map(cfg => {
+        const geo = createRoundedGlassVesselGeometry(cfg.rScale, cfg.hScale);
+        const mesh = new THREE.Mesh(geo, glassMaterial);
+        mesh.position.set(cfg.pos[0], cfg.pos[1], cfg.pos[2]);
+        mesh.rotation.set(cfg.rot[0], cfg.rot[1], cfg.rot[2]);
+        opticalVesselsSubGroup.add(mesh);
+        return {
+          mesh,
+          basePos: new THREE.Vector3(...cfg.pos),
+          baseRot: new THREE.Euler(...cfg.rot),
+          phase: cfg.phase
+        };
+      });
+
+      // Default visibility: Quantum Prism active
+      quantumPrismSubGroup.visible = true;
+      opticalVesselsSubGroup.visible = false;
+
+      // ====================================================================
+      // BUILD C: FLANKING SCULPTED 3D LIQUID-CHROME LOOP CONNECTORS
+      // ====================================================================
+      leftChromeConnector = createSculpturalConnectorGroup(chromeMaterial, true);
+      leftChromeConnector.position.set(-2.35, 0.68, 0.15);
+      leftChromeConnector.rotation.set(0.22, 0.35, -0.38);
+      vesselScene.add(leftChromeConnector);
+
+      rightChromeConnector = createSculpturalConnectorGroup(chromeMaterial, false);
+      rightChromeConnector.position.set(2.42, -0.16, 0.10);
+      rightChromeConnector.rotation.set(-0.18, -0.28, -0.08);
+      vesselScene.add(rightChromeConnector);
+
+      // Responsive 3D Layout Helper for Portrait Mobile vs Desktop Viewports
+      let isPortraitMobile = false;
+      function applyResponsive3DLayout(width, height) {
+        const aspect = width / Math.max(1, height);
+        isPortraitMobile = aspect < 0.85;
+        if (isPortraitMobile) {
+          sculptureParams.targetCamZ = 7.45;
+          if (masterCenterGroup) masterCenterGroup.scale.setScalar(0.84);
+          if (leftChromeConnector) {
+            leftChromeConnector.scale.setScalar(0.68);
+            leftChromeConnector.position.x = -1.15;
+          }
+          if (rightChromeConnector) {
+            rightChromeConnector.scale.setScalar(0.68);
+            rightChromeConnector.position.x = 1.15;
+          }
+        } else {
+          sculptureParams.targetCamZ = 6.30;
+          if (masterCenterGroup) masterCenterGroup.scale.setScalar(1.0);
+          if (leftChromeConnector) {
+            leftChromeConnector.scale.setScalar(1.0);
+            leftChromeConnector.position.x = -2.35;
+          }
+          if (rightChromeConnector) {
+            rightChromeConnector.scale.setScalar(1.0);
+            rightChromeConnector.position.x = 2.42;
+          }
+        }
+      }
+
+      applyResponsive3DLayout(rect.width, rect.height);
+
+      // Mouse & Touch Gesture Parallax for Mobile + Desktop
+      let mouseX = 0, mouseY = 0;
+      let targetMouseX = 0, targetMouseY = 0;
+
+      window.addEventListener('mousemove', (e) => {
+        targetMouseX = (e.clientX / window.innerWidth - 0.5) * 2.0;
+        targetMouseY = -(e.clientY / window.innerHeight - 0.5) * 2.0;
+      });
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          const touch = e.touches[0];
+          targetMouseX = (touch.clientX / window.innerWidth - 0.5) * 2.2;
+          targetMouseY = -(touch.clientY / window.innerHeight - 0.5) * 2.2;
+        }
+      }, { passive: true });
+
+      window.addEventListener('resize', () => {
+        if (!container || !vesselRenderer || !vesselCamera) return;
+        const r = container.getBoundingClientRect();
+        vesselCamera.aspect = r.width / r.height;
+        vesselCamera.updateProjectionMatrix();
+        vesselRenderer.setSize(r.width, r.height);
+        applyResponsive3DLayout(r.width, r.height);
+      });
+
+      // Scroll-Driven Seamless Depth-of-Field Fade Bridge
+      const heroFg = document.getElementById('hero-foreground-layer');
+      window.addEventListener('scroll', () => {
+        const scrollY = window.scrollY || window.pageYOffset;
+        const vh = window.innerHeight || 800;
+        const p = Math.min(1.0, Math.max(0.0, scrollY / (vh * 0.85)));
+        sculptureParams.scrollProgress = p;
+
+        if (heroFg) {
+          heroFg.style.opacity = String(Math.max(0, 1 - p * 1.15));
+          heroFg.style.transform = `translateY(${p * -38}px)`;
+        }
+        canvas.style.opacity = String(Math.max(0.08, 1 - p * 0.90));
+      }, { passive: true });
+
+      // Main Render Loop
+      const clock = new THREE.Clock();
+      function animateQuantumPrism() {
+        requestAnimationFrame(animateQuantumPrism);
+        const elapsed = clock.getElapsedTime();
+
+        mouseX += (targetMouseX - mouseX) * 0.05;
+        mouseY += (targetMouseY - mouseY) * 0.05;
+
+        if (glassUniforms) {
+          glassUniforms.uTime.value = elapsed;
+          glassUniforms.uMouse.value.set(mouseX, mouseY);
+        }
+        if (chromeUniforms) {
+          chromeUniforms.uTime.value = elapsed;
+          chromeUniforms.uMouse.value.set(mouseX, mouseY);
+        }
+
+        const speed = sculptureParams.driftSpeed;
+        const spread = sculptureParams.spread;
+
+        // Animate Quantum Prism & Triple-Axis Gyroscope
+        if (quantumPrismSubGroup && quantumPrismSubGroup.visible) {
+          if (prismOuterMesh) {
+            prismOuterMesh.rotation.y = elapsed * 0.26 * speed;
+            prismOuterMesh.rotation.x = Math.sin(elapsed * 0.24) * 0.16;
+            prismOuterMesh.scale.setScalar(0.92 + spread * 0.08);
+          }
+          if (prismInnerShellMesh) {
+            prismInnerShellMesh.rotation.y = -elapsed * 0.34 * speed;
+            prismInnerShellMesh.rotation.z = Math.cos(elapsed * 0.28) * 0.22;
+          }
+          if (prismCoreLens) {
+            prismCoreLens.rotation.x = Math.PI * 0.28 + Math.sin(elapsed * 0.5) * 0.25;
+            prismCoreLens.rotation.y = elapsed * 0.42 * speed;
+          }
+          if (innerCoreWireframe) {
+            const pulse = 1.0 + Math.sin(elapsed * 2.2) * 0.07;
+            innerCoreWireframe.scale.set(pulse, pulse, pulse);
+            innerCoreWireframe.rotation.y = -elapsed * 0.55 * speed;
+          }
+          if (gyroRing1) {
+            gyroRing1.rotation.x = Math.PI * 0.30 + elapsed * 0.36 * speed;
+            gyroRing1.rotation.y = elapsed * 0.24 * speed;
+          }
+          if (gyroRing2) {
+            gyroRing2.rotation.y = Math.PI * 0.28 - elapsed * 0.40 * speed;
+            gyroRing2.rotation.z = elapsed * 0.30 * speed;
+          }
+          if (gyroRing3) {
+            gyroRing3.rotation.z = -elapsed * 0.48 * speed;
+            gyroRing3.rotation.x = -Math.PI * 0.22 + Math.sin(elapsed * 0.4) * 0.18;
+          }
+          if (particlesGroup) {
+            particlesGroup.rotation.y = elapsed * 0.14 * speed;
+          }
+        }
+
+        // Animate 7 Optical Vessels Cluster when toggled
+        if (opticalVesselsSubGroup && opticalVesselsSubGroup.visible) {
+          vesselItems.forEach((item, i) => {
+            const t = elapsed * speed + item.phase;
+            item.mesh.position.x = item.basePos.x * spread + Math.sin(t * 0.9) * 0.045;
+            item.mesh.position.y = item.basePos.y * spread + Math.cos(t * 1.1) * 0.045;
+            item.mesh.position.z = item.basePos.z * spread + Math.sin(t * 0.7) * 0.035;
+
+            item.mesh.rotation.x = item.baseRot.x + Math.sin(t * 0.6) * 0.12;
+            item.mesh.rotation.y = item.baseRot.y + Math.cos(t * 0.5) * 0.14;
+            item.mesh.rotation.z = item.baseRot.z + Math.sin(t * 0.4 + i) * 0.08;
+          });
+        }
+
+        // Master Center Group Parallax & Camera Choreography
+        if (masterCenterGroup) {
+          const desiredY = sculptureParams.targetRotY + mouseX * 0.32 + Math.sin(elapsed * 0.28) * 0.08;
+          const desiredX = sculptureParams.targetRotX + mouseY * 0.22 + Math.cos(elapsed * 0.24) * 0.05;
+          const desiredZ = sculptureParams.targetRotZ + sculptureParams.scrollProgress * 0.22;
+
+          masterCenterGroup.rotation.y += (desiredY - masterCenterGroup.rotation.y) * 0.06;
+          masterCenterGroup.rotation.x += (desiredX - masterCenterGroup.rotation.x) * 0.06;
+          masterCenterGroup.rotation.z += (desiredZ - masterCenterGroup.rotation.z) * 0.06;
+          masterCenterGroup.position.x += (sculptureParams.targetOffsetX - masterCenterGroup.position.x) * 0.06;
+          masterCenterGroup.position.y = sculptureParams.scrollProgress * -0.42;
+        }
+
+        // Flanking Sculpted Liquid-Chrome Loop Connectors gentle hover
+        if (leftChromeConnector && rightChromeConnector) {
+          const baseLeftY = isPortraitMobile ? 1.18 : 0.68;
+          const baseRightY = isPortraitMobile ? -1.08 : -0.16;
+
+          leftChromeConnector.position.y = baseLeftY + Math.sin(elapsed * 0.95) * 0.065 + mouseY * 0.08;
+          leftChromeConnector.rotation.z = -0.38 + Math.sin(elapsed * 0.6) * 0.055;
+
+          rightChromeConnector.position.y = baseRightY + Math.cos(elapsed * 0.88) * 0.065 - mouseY * 0.08;
+          rightChromeConnector.rotation.z = -0.08 + Math.cos(elapsed * 0.55) * 0.055;
+        }
+
+        if (vesselCamera) {
+          const scrollZoom = sculptureParams.scrollProgress * 1.05;
+          const desiredCamZ = sculptureParams.targetCamZ + scrollZoom;
+          vesselCamera.position.z += (desiredCamZ - vesselCamera.position.z) * 0.06;
+        }
+
+        vesselRenderer.render(vesselScene, vesselCamera);
+      }
+
+      animateQuantumPrism();
+    }
+
+    // 1-Click Toggle between Quantum Prism & 7 Optical Vessels
+    function toggleSculptureGeometryMode() {
+      activeSculptureMode = activeSculptureMode === 'prism' ? 'vessels' : 'prism';
+      if (quantumPrismSubGroup && opticalVesselsSubGroup) {
+        quantumPrismSubGroup.visible = activeSculptureMode === 'prism';
+        opticalVesselsSubGroup.visible = activeSculptureMode === 'vessels';
+      }
+
+      const pill = document.getElementById('sculpture-mode-pill');
+      if (pill) {
+        pill.textContent =
+          activeSculptureMode === 'prism'
+            ? 'Quantum Prism · Interactive 3D'
+            : 'Optical Vessels · Interactive 3D';
+      }
+
+      const hudBadge = document.getElementById('hud-mode-badge');
+      if (hudBadge) {
+        hudBadge.textContent =
+          activeSculptureMode === 'prism' ? 'MODE: PRISM ⇄' : 'MODE: VESSELS ⇄';
+      }
+
+      const coreLabel = document.getElementById('telemetry-core-label');
+      if (coreLabel) {
+        coreLabel.textContent =
+          activeSculptureMode === 'prism' ? 'QUANTUM_PRISM_GYRO' : '7_OPTICAL_VESSELS';
+      }
+    }
+
+    // Live HUD Controls for 3D Shader
+    function updateVesselPhysicsFromHUD() {
+      const elSlider = document.getElementById('slider-elongation');
+      const iorSlider = document.getElementById('slider-ior');
+      const swSlider = document.getElementById('slider-swirl');
+
+      if (!elSlider || !iorSlider || !swSlider) return;
+
+      const newDispersion = parseFloat(elSlider.value);
+      const newIOR = parseFloat(iorSlider.value);
+      const newDriftPct = parseInt(swSlider.value, 10);
+
+      document.getElementById('hud-val-elongation').textContent = newDispersion.toFixed(2);
+      document.getElementById('hud-val-ior').textContent = newIOR.toFixed(3);
+      document.getElementById('hud-val-swirl').textContent = `${newDriftPct}%`;
+
+      sculptureParams.spread = newDispersion;
+      sculptureParams.dispersion = newDispersion;
+      sculptureParams.ior = newIOR;
+      sculptureParams.driftSpeed = newDriftPct / 100.0;
+
+      if (glassUniforms) {
+        glassUniforms.uIOR.value = newIOR;
+        glassUniforms.uDispersion.value = newDispersion;
+      }
+    }
+
+    // In-Place Stage View Switcher (Home, How to use, About, Advantages)
+    function switchHeroStageView(view) {
+      const studioEl = document.getElementById('hero-view-studio');
+      const specsEl = document.getElementById('hero-view-specs');
+      const benchEl = document.getElementById('hero-view-benchmarks');
+      const physicsEl = document.getElementById('hero-view-physics');
+
+      const btnStudio = document.getElementById('hero-nav-studio');
+      const btnSpecs = document.getElementById('hero-nav-specs');
+      const btnBench = document.getElementById('hero-nav-benchmarks');
+      const btnPhysics = document.getElementById('hero-nav-physics');
+
+      const btnStudioMob = document.getElementById('hero-nav-studio-mob');
+      const btnSpecsMob = document.getElementById('hero-nav-specs-mob');
+      const btnBenchMob = document.getElementById('hero-nav-benchmarks-mob');
+      const btnPhysicsMob = document.getElementById('hero-nav-physics-mob');
+
+      [studioEl, specsEl, benchEl, physicsEl].forEach(el => {
+        if (el) {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        }
+      });
+
+      const inactiveClass = 'px-4 py-1.5 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-all';
+      const activeClass = 'px-4 py-1.5 rounded-full bg-white/25 text-white font-medium transition-all';
+
+      const inactiveMobClass = 'px-3 py-1.5 rounded-full text-white/80 shrink-0 transition-all';
+      const activeMobClass = 'px-3 py-1.5 rounded-full bg-white/25 text-white font-medium shrink-0 transition-all';
+
+      [btnStudio, btnSpecs, btnBench, btnPhysics].forEach(btn => {
+        if (btn) btn.className = inactiveClass;
+      });
+      [btnStudioMob, btnSpecsMob, btnBenchMob, btnPhysicsMob].forEach(btn => {
+        if (btn) btn.className = inactiveMobClass;
+      });
+
+      const isMobileViewport = window.innerWidth < 768;
+
+      if (view === 'specs') {
+        if (specsEl) {
+          specsEl.classList.remove('hidden');
+          specsEl.classList.add('flex');
+        }
+        if (btnSpecs) btnSpecs.className = activeClass;
+        if (btnSpecsMob) btnSpecsMob.className = activeMobClass;
+        sculptureParams.targetCamZ = isMobileViewport ? 6.85 : 5.55;
+        sculptureParams.targetRotY = -0.55;
+        sculptureParams.targetRotX = 0.22;
+        sculptureParams.targetRotZ = 0.12;
+        sculptureParams.targetOffsetX = isMobileViewport ? 0.0 : 0.15;
+      } else if (view === 'benchmarks') {
+        if (benchEl) {
+          benchEl.classList.remove('hidden');
+          benchEl.classList.add('flex');
+        }
+        if (btnBench) btnBench.className = activeClass;
+        if (btnBenchMob) btnBenchMob.className = activeMobClass;
+        sculptureParams.targetCamZ = isMobileViewport ? 6.95 : 5.75;
+        sculptureParams.targetRotY = 0.65;
+        sculptureParams.targetRotX = -0.18;
+        sculptureParams.targetRotZ = -0.14;
+        sculptureParams.targetOffsetX = isMobileViewport ? 0.0 : -0.15;
+      } else if (view === 'physics') {
+        if (physicsEl) {
+          physicsEl.classList.remove('hidden');
+          physicsEl.classList.add('flex');
+        }
+        if (btnPhysics) btnPhysics.className = activeClass;
+        if (btnPhysicsMob) btnPhysicsMob.className = activeMobClass;
+        sculptureParams.targetCamZ = isMobileViewport ? 7.05 : 5.85;
+        sculptureParams.targetRotY = 0.42;
+        sculptureParams.targetRotX = -0.10;
+        sculptureParams.targetRotZ = -0.08;
+        sculptureParams.targetOffsetX = 0.0;
+      } else {
+        if (studioEl) {
+          studioEl.classList.remove('hidden');
+          studioEl.classList.add('flex');
+        }
+        if (btnStudio) btnStudio.className = activeClass;
+        if (btnStudioMob) btnStudioMob.className = activeMobClass;
+        sculptureParams.targetCamZ = isMobileViewport ? 7.45 : 6.30;
+        sculptureParams.targetRotY = 0.14;
+        sculptureParams.targetRotX = 0.06;
+        sculptureParams.targetRotZ = -0.04;
+        sculptureParams.targetOffsetX = 0.0;
+      }
+    }
+
+    // Deploy Drawer & Terminal CLI Logic
+    function openRequestDrawer() {
+      const drawer = document.getElementById('slideover-drawer');
+      const backdrop = document.getElementById('slideover-backdrop');
+      document.body.classList.add('drawer-open');
+      if (backdrop) backdrop.classList.remove('hidden');
+      if (drawer) drawer.classList.remove('-translate-x-[115%]');
+    }
+
+    function closeRequestDrawer() {
+      const drawer = document.getElementById('slideover-drawer');
+      const backdrop = document.getElementById('slideover-backdrop');
+      document.body.classList.remove('drawer-open');
+      if (backdrop) backdrop.classList.add('hidden');
+      if (drawer) drawer.classList.add('-translate-x-[115%]');
+    }
+
+    const DEPLOY_COMMANDS = {
+      npx: 'npx @collins/agent@latest init --free',
+      bunx: 'bunx @collins/agent@latest init --free',
+      pnpm: 'pnpm dlx @collins/agent@latest init --free',
+      curl: 'curl -fsSL https://collins.dev/install.sh | sh'
+    };
+
+    function selectDeployTab(tab) {
+      ['npx', 'bunx', 'pnpm', 'curl'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'flex-1 py-1.5 rounded-lg bg-[#041024] text-white font-semibold transition-all';
+          } else {
+            btn.className = 'flex-1 py-1.5 rounded-lg text-[#041024]/70 hover:text-[#041024] transition-all';
+          }
+        }
+      });
+      const input = document.getElementById('drawer-identity-input');
+      if (input && DEPLOY_COMMANDS[tab]) {
+        input.value = DEPLOY_COMMANDS[tab];
+      }
+    }
+
+    function copyDeployCommand() {
+      const input = document.getElementById('drawer-identity-input');
+      const copyText = document.getElementById('copy-btn-text');
+      if (input) {
+        const temp = document.createElement('textarea');
+        temp.value = input.value;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        if (copyText) {
+          copyText.textContent = 'Copied!';
+          setTimeout(() => {
+            copyText.textContent = 'Copy';
+          }, 1800);
+        }
+      }
+    }
+
+    function handleDrawerSubmit(e) {
+      if (e) e.preventDefault();
+      copyDeployCommand();
+      const label = document.getElementById('drawer-submit-label');
+      if (label) {
+        label.textContent = `Copied (${GEO_CURRENCIES[currentGeo].zero}) — Opening Workspace...`;
+      }
+      setTimeout(() => {
+        closeRequestDrawer();
+        const ws = document.getElementById('workspace-section');
+        if (ws) ws.scrollIntoView({ behavior: 'smooth' });
+        if (label) {
+          label.innerHTML = `Copy CLI & Open Workspace (<span class="dynamic-zero-price">${GEO_CURRENCIES[currentGeo].zero}</span>)`;
+        }
+      }, 550);
+    }
+
+    // ==========================================================================
+    // 3. GEO-IP "0 CURRENCY" ENGINE (ID Rp 0, US $0, EU €0, JP ¥0, GB £0, SG S$0)
+    // ==========================================================================
+    const GEO_CURRENCIES = {
+      ID: {
+        code: 'ID',
+        monolithCode: 'ID · FREE',
+        zero: 'Rp 0',
+        full: 'Rp 0 / Selamanya'
+      },
+      US: {
+        code: 'US',
+        monolithCode: 'US · FREE',
+        zero: '$0',
+        full: '$0 / Free Forever'
+      },
+      EU: {
+        code: 'EU',
+        monolithCode: 'EU · FREE',
+        zero: '€0',
+        full: '€0 / Free Forever'
+      },
+      JP: {
+        code: 'JP',
+        monolithCode: 'JP · FREE',
+        zero: '¥0',
+        full: '¥0 / 永久無料'
+      },
+      GB: {
+        code: 'GB',
+        monolithCode: 'UK · FREE',
+        zero: '£0',
+        full: '£0 / Free Forever'
+      },
+      SG: {
+        code: 'SG',
+        monolithCode: 'SG · FREE',
+        zero: 'S$0',
+        full: 'S$0 / Free Forever'
+      }
+    };
+
+    const GEO_ORDER = ['ID', 'US', 'EU', 'JP', 'GB', 'SG'];
+    let currentGeo = 'ID';
+
+    function cycleGeoCurrency() {
+      const idx = GEO_ORDER.indexOf(currentGeo);
+      const next = GEO_ORDER[(idx + 1) % GEO_ORDER.length];
+      setGeoCurrency(next);
+    }
+
+    function setGeoCurrency(regionCode) {
+      const cfg = GEO_CURRENCIES[regionCode] || GEO_CURRENCIES.ID;
+      currentGeo = cfg.code;
+
+      document.querySelectorAll('.dynamic-zero-price').forEach(el => {
+        el.textContent = cfg.zero;
+      });
+      document.querySelectorAll('.dynamic-zero-full').forEach(el => {
+        el.textContent = cfg.full;
+      });
+
+      const monolithGeo = document.getElementById('monolith-geo-code');
+      if (monolithGeo) monolithGeo.textContent = cfg.monolithCode;
+
+      const topGeo = document.getElementById('top-geo-code');
+      if (topGeo) topGeo.textContent = `· ${cfg.code}`;
+
+      document.querySelectorAll('.geo-btn').forEach(btn => {
+        if (btn.getAttribute('data-region') === cfg.code) {
+          btn.className = 'geo-btn px-2.5 py-1 rounded-full transition-all bg-white text-[#041024] font-semibold';
+        } else {
+          btn.className = 'geo-btn px-2.5 py-1 rounded-full transition-all text-white/75 hover:text-white';
+        }
+      });
+
+      renderMobileScreen();
+      renderOpenCodeTab();
+    }
+
+    function autoDetectVisitorGeo() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        const lang = (navigator.language || '').toLowerCase();
+        if (
+          tz.includes('Jakarta') ||
+          tz.includes('Makassar') ||
+          tz.includes('Jayapura') ||
+          tz.includes('Pontianak') ||
+          lang.startsWith('id')
+        ) {
+          setGeoCurrency('ID');
+          return;
+        }
+      } catch (e) {}
+      setGeoCurrency('ID');
+    }
+
+    // ==========================================================================
+    // 4. KINETIC MANIFESTO SEQUENCE
+    // ==========================================================================
+    const KINETIC_FRAMES = [
+      { letter: 'C', word: 'coding' },
+      { letter: 'O', word: 'open-source' },
+      { letter: 'L', word: 'limitless' },
+      { letter: 'L', word: 'local-currency (0)' },
+      { letter: 'I', word: 'integrated' },
+      { letter: 'N', word: 'neural' },
+      { letter: 'S', word: 'sonnet + opus + tera + argon' }
+    ];
+    let kineticTimer = null;
+
+    function openKineticIntro() {
+      const overlay = document.getElementById('kinetic-manifesto-overlay');
+      const letterEl = document.getElementById('kinetic-giant-letter');
+      const wordEl = document.getElementById('kinetic-superscript-word');
+      const stepEl = document.getElementById('kinetic-step-label');
+      const barEl = document.getElementById('kinetic-progress-bar');
+      if (!overlay) return;
+
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+
+      let idx = 0;
+      function renderStep(i) {
+        const frame = KINETIC_FRAMES[i];
+        letterEl.textContent = frame.letter;
+        wordEl.textContent = frame.word;
+        stepEl.textContent = `0${i + 1} / 07 — COLLINS PROTOCOL`;
+        barEl.style.width = `${Math.round(((i + 1) / KINETIC_FRAMES.length) * 100)}%`;
+      }
+
+      renderStep(0);
+      clearInterval(kineticTimer);
+      kineticTimer = setInterval(() => {
+        idx++;
+        if (idx >= KINETIC_FRAMES.length) {
+          clearInterval(kineticTimer);
+          setTimeout(closeKineticIntro, 450);
+          return;
+        }
+        renderStep(idx);
+      }, 520);
+    }
+
+    function closeKineticIntro() {
+      clearInterval(kineticTimer);
+      const overlay = document.getElementById('kinetic-manifesto-overlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeKineticIntro();
+        closeRequestDrawer();
+      }
+    });
+
+    // ==========================================================================
+    // ==========================================================================
+    const WORKSPACE_THREADS = {
+      'dark-mode': {
+        id: 'dark-mode',
+        title: 'Dark mode toggle',
+        steps: [
+          {
+            type: 'create',
+            label: 'Create',
+            file: 'src/components/theme-toggle.tsx',
+            rightText: '',
+            snippet: `+ export function ThemeToggle() {\n+   const { theme, setTheme } = useTheme();\n+   return (\n+     <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>\n+       Switch Theme ({theme})\n+     </button>\n+   );\n+ }`
+          },
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: 'src/lib/theme.ts',
+            rightText: '',
+            snippet: `  export type ThemeMode = 'system' | 'light' | 'dark';\n+ const STORAGE_KEY = 'acme-theme-preference';\n+ export function resolveInitialTheme(): ThemeMode {\n+   return (localStorage.getItem(STORAGE_KEY) as ThemeMode) || 'system';\n+ }`
+          },
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: 'src/app/settings/page.tsx',
+            rightText: '',
+            snippet: `  <section aria-labelledby="appearance-heading">\n+   <ThemeToggle />\n  </section>`
+          },
+          {
+            type: 'run',
+            label: 'Run',
+            file: 'bun test',
+            rightText: '42 passed',
+            snippet: `PASS src/components/theme-toggle.test.tsx (14 passed)\nPASS src/lib/theme.test.ts (18 passed)\nPASS src/app/settings/page.test.tsx (10 passed)\n42 tests passed in 19ms`
+          }
+        ],
+        summaryHtml: `Added a theme toggle under Settings → Appearance. It follows the system theme by default and remembers an explicit choice in <code class="px-1.5 py-0.5 rounded bg-[#262624] border border-[#363633] font-mono text-[12.5px] text-[#e6e6e3]">localStorage</code>.`,
+        filesChangedCount: '3 files changed',
+        totalAdded: '+84',
+        totalRemoved: '-6',
+        diffs: [
+          {
+            icon: '±',
+            path: 'src/app/settings/page.tsx',
+            added: '+41',
+            removed: '-4',
+            code: `@@ -14,6 +14,15 @@ export default function SettingsPage() {\n+ import { ThemeToggle } from '@/components/theme-toggle';\n  return (\n    <div className="space-y-6">\n      <h3>Appearance</h3>\n-     <p className="text-muted">System default only</p>\n+     <ThemeToggle />\n    </div>\n  );`
+          },
+          {
+            icon: '+',
+            path: 'src/components/theme-toggle.tsx',
+            added: '+25',
+            removed: '',
+            code: `@@ -0,0 +1,25 @@\n+'use client';\n+import { useEffect, useState } from 'react';\n+import { applyTheme, resolveInitialTheme } from '@/lib/theme';\n+\n+export function ThemeToggle() {\n+  const [mode, setMode] = useState(resolveInitialTheme);\n+  useEffect(() => applyTheme(mode), [mode]);\n+  return <SegmentedControl value={mode} onChange={setMode} />;\n+}`
+          },
+          {
+            icon: '±',
+            path: 'src/lib/theme.ts',
+            added: '+18',
+            removed: '-2',
+            code: `@@ -4,4 +4,20 @@ export function applyTheme(mode: 'light' | 'dark' | 'system') {\n- document.documentElement.classList.toggle('dark', mode === 'dark');\n+ const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n+ const isDark = mode === 'system' ? prefersDark : mode === 'dark';\n+ document.documentElement.classList.toggle('dark', isDark);\n+ localStorage.setItem('acme-theme', mode);\n}`
+          }
+        ],
+        followUp: 'Want a keyboard shortcut for it too?',
+        replies: []
+      },
+
+      'flaky-auth': {
+        id: 'flaky-auth',
+        title: 'Fix the flaky auth test',
+        steps: [
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: 'src/auth/__tests__/session.spec.ts',
+            rightText: '',
+            snippet: `- await sleep(150);\n+ await vi.waitFor(() => expect(tokenStore.isReady()).toBe(true));`
+          },
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: 'src/auth/jwt-verifier.ts',
+            rightText: '',
+            snippet: `+ const CLOCK_TOLERANCE_MS = 250;\n  return verifySignature(payload, { clockTolerance: CLOCK_TOLERANCE_MS });`
+          },
+          {
+            type: 'run',
+            label: 'Run',
+            file: 'bun test src/auth --repeat 50',
+            rightText: '50/50 passed',
+            snippet: `Ran 50 consecutive stress iterations across 8 auth suites.\n0 race conditions detected (112ms total).`
+          }
+        ],
+        summaryHtml: `Eliminated the timing race in <code class="px-1.5 py-0.5 rounded bg-[#262624] border border-[#363633] font-mono text-[12.5px] text-[#e6e6e3]">session.spec.ts</code> by awaiting deterministic token lock hydration instead of a fixed 150ms sleep.`,
+        filesChangedCount: '2 files changed',
+        totalAdded: '+29',
+        totalRemoved: '-14',
+        diffs: [
+          {
+            icon: '±',
+            path: 'src/auth/__tests__/session.spec.ts',
+            added: '+19',
+            removed: '-11',
+            code: `@@ -42,7 +42,7 @@ it('rotates refresh token under concurrent requests', async () => {\n- await new Promise(r => setTimeout(r, 150));\n+ await waitForRotationLock(session.id);\n  expect(session.isValid()).toBe(true);\n});`
+          },
+          {
+            icon: '±',
+            path: 'src/auth/jwt-verifier.ts',
+            added: '+10',
+            removed: '-3',
+            code: `@@ -18,4 +18,11 @@ export async function verifyToken(raw: string) {\n+ return verifyWithSkewTolerance(raw, 250);\n}`
+          }
+        ],
+        followUp: 'Should I add this 50x stress check to your GitHub Actions workflow?',
+        replies: []
+      },
+
+      'rate-limit': {
+        id: 'rate-limit',
+        title: 'Rate limit the webhook',
+        steps: [
+          {
+            type: 'create',
+            label: 'Create',
+            file: 'src/lib/rate-limit.ts',
+            rightText: '',
+            snippet: `+ export const webhookLimiter = new SlidingWindowLimiter({\n+   windowMs: 60_000,\n+   maxRequests: 120\n+ });`
+          },
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: 'src/app/api/webhooks/stripe/route.ts',
+            rightText: '',
+            snippet: `+ const { allowed, retryAfter } = await webhookLimiter.check(ip);\n+ if (!allowed) return new Response('Too Many Requests', { status: 429 });`
+          },
+          {
+            type: 'run',
+            label: 'Run',
+            file: 'bun test src/app/api/webhooks',
+            rightText: '18 passed',
+            snippet: `PASS allows burst up to 120 req/min\nPASS returns HTTP 429 + Retry-After header on overflow`
+          }
+        ],
+        summaryHtml: `Implemented a sliding-window rate limiter on the webhook endpoint with automatic <code class="px-1.5 py-0.5 rounded bg-[#262624] border border-[#363633] font-mono text-[12.5px] text-[#e6e6e3]">Retry-After</code> response headers.`,
+        filesChangedCount: '2 files changed',
+        totalAdded: '+64',
+        totalRemoved: '-3',
+        diffs: [
+          {
+            icon: '+',
+            path: 'src/lib/rate-limit.ts',
+            added: '+46',
+            removed: '',
+            code: `@@ -0,0 +1,46 @@\n+export class SlidingWindowLimiter {\n+  async check(key: string) {\n+    return { allowed: true, remaining: 119, retryAfter: 0 };\n+  }\n+}`
+          },
+          {
+            icon: '±',
+            path: 'src/app/api/webhooks/stripe/route.ts',
+            added: '+18',
+            removed: '-3',
+            code: `@@ -9,3 +9,18 @@ export async function POST(req: Request) {\n+ const limit = await webhookLimiter.check(req.headers.get('x-forwarded-for') ?? 'anon');\n+ if (!limit.allowed) return Response.json({ error: 'Rate limit exceeded' }, { status: 429 });\n}`
+          }
+        ],
+        followUp: 'Want me to expose Prometheus metrics for 429 webhook drops?',
+        replies: []
+      },
+
+      'opencode-sync': {
+        id: 'opencode-sync',
+        title: 'OpenCode MCP sync',
+        steps: [
+          {
+            type: 'create',
+            label: 'Create',
+            file: 'opencode.json',
+            rightText: '',
+            snippet: `{\n  "provider": "collins-unlimited",\n  "models": ["sonnet-4.5", "opus-4.5", "tera-2.0", "argon-ultra"],\n  "billing": "0"\n}`
+          },
+          {
+            type: 'edit',
+            label: 'Edit',
+            file: '.collins/mcp-bridge.ts',
+            rightText: '',
+            snippet: `+ await bridge.connect({ client: 'opencode-cli', mobileSync: true });`
+          },
+          {
+            type: 'run',
+            label: 'Run',
+            file: 'opencode doctor --provider collins',
+            rightText: 'Connected',
+            snippet: `PASS OpenCode CLI linked to Collins Frontier Pool\nPASS Models unlocked: Sonnet 4.5, Opus 4.5, Tera 2.0, Argon Ultra\nPASS Session billing: 0 (Unlimited)`
+          }
+        ],
+        summaryHtml: `Bound your local <code class="px-1.5 py-0.5 rounded bg-[#262624] border border-[#363633] font-mono text-[12.5px] text-[#e6e6e3]">opencode</code> CLI daemon to this workspace and your Collins mobile phone app.`,
+        filesChangedCount: '2 files changed',
+        totalAdded: '+52',
+        totalRemoved: '-1',
+        diffs: [
+          {
+            icon: '+',
+            path: 'opencode.json',
+            added: '+31',
+            removed: '',
+            code: `{\n  "$schema": "https://opencode.ai/config.json",\n  "provider": {\n    "collins": {\n      "endpoint": "https://free.collins.dev/v1",\n      "defaultModel": "sonnet-4.5"\n    }\n  }\n}`
+          },
+          {
+            icon: '±',
+            path: '.collins/mcp-bridge.ts',
+            added: '+21',
+            removed: '-1',
+            code: `+ export const mcpBridge = createOpenCodeBridge({ syncMobile: true, zeroCost: true });`
+          }
+        ],
+        followUp: 'Want to test dispatching a file edit from your phone to this OpenCode session?',
+        replies: []
+      }
+    };
+
+    const THREAD_ORDER = ['dark-mode', 'flaky-auth', 'rate-limit', 'opencode-sync'];
+    let activeThreadId = 'dark-mode';
+    let expandedSteps = {};
+    let expandedDiffs = {};
+    let currentWorkspaceModel = 'Claude Haiku 5.5';
+
+    const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    function renderThreadSidebar() {
+      const container = document.getElementById('thread-list-container');
+      if (!container) return;
+
+      container.innerHTML = THREAD_ORDER.map(id => {
+        const t = WORKSPACE_THREADS[id];
+        const isActive = id === activeThreadId;
+        return `
+          <button
+            onclick="selectThread('${id}')"
+            class="w-full px-2.5 py-2 rounded-lg flex items-center gap-2.5 text-left text-[13px] transition-colors ${
+              isActive
+                ? 'bg-[#292927] text-white font-medium'
+                : 'text-[#9a9a95] hover:text-white hover:bg-[#1f1f1d] font-normal'
+            }"
+          >
+            <svg class="w-4 h-4 shrink-0 ${isActive ? 'text-[#d4d4d0]' : 'text-[#787874]'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5m-9 4l2.5-2.5H18a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12z"/>
+            </svg>
+            <span class="truncate">${t.title}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderActiveThread() {
+      const thread = WORKSPACE_THREADS[activeThreadId];
+      if (!thread) return;
+
+      const tabTitle = document.getElementById('workspace-active-tab-title');
+      if (tabTitle) tabTitle.textContent = thread.title;
+
+      const tabTitleMob = document.getElementById('workspace-active-tab-title-mobile');
+      if (tabTitleMob) tabTitleMob.textContent = thread.title;
+
+      const stream = document.getElementById('workspace-stream');
+      if (!stream) return;
+
+      const stepsHtml = thread.steps.map((s, idx) => {
+        const key = `${activeThreadId}-step-${idx}`;
+        const isOpen = !!expandedSteps[key];
+
+        let iconSvg = '';
+        if (s.type === 'create') {
+          iconSvg = `<svg class="w-3.5 h-3.5 text-[#8e8e89]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`;
+        } else if (s.type === 'edit') {
+          iconSvg = `<svg class="w-3.5 h-3.5 text-[#8e8e89]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 14l4-4"/></svg>`;
+        } else {
+          iconSvg = `<svg class="w-3.5 h-3.5 text-[#8e8e89]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><polyline points="8 10 11 13 8 16"/><line x1="13" y1="16" x2="17" y2="16"/></svg>`;
+        }
+
+        return `
+          <div class="timeline-row">
+            <button
+              onclick="toggleStepDetail('${key}')"
+              class="w-full py-1.5 flex items-center justify-between text-left group hover:bg-[#1f1f1d] px-1.5 -mx-1.5 rounded-lg transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-4 h-4 rounded bg-obsidian-900 relative z-10 flex items-center justify-center">
+                  ${iconSvg}
+                </div>
+                <span class="text-[12.5px] font-medium text-[#b8b8b2]">${s.label}</span>
+                <span class="text-[12.5px] font-mono text-[#94948e] truncate group-hover:text-white transition-colors">${s.file}</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0 text-[12px] text-[#8e8e89]">
+                ${s.rightText ? `<span>${s.rightText}</span>` : ''}
+                <svg class="w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-90 text-white' : ''}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </button>
+            ${
+              isOpen
+                ? `<pre class="mt-1.5 mb-2 ml-6 p-3 rounded-lg bg-obsidian-950 border border-obsidian-700 font-mono text-[11.5px] text-[#67dcf2] overflow-x-auto leading-relaxed">${escHtml(s.snippet)}</pre>`
+                : ''
+            }
+          </div>
+        `;
+      }).join('');
+
+      const diffRowsHtml = thread.diffs.map((d, idx) => {
+        const key = `${activeThreadId}-diff-${idx}`;
+        const isOpen = !!expandedDiffs[key];
+        return `
+          <div class="border-t border-[#292926] first:border-t-0">
+            <button
+              onclick="toggleDiffDetail('${key}')"
+              class="w-full px-4 py-2.5 flex items-center justify-between hover:bg-[#252523] transition-colors text-left"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-4 h-4 rounded border border-[#52524e] text-[10px] font-mono text-[#a1a19b] flex items-center justify-center shrink-0">
+                  ${d.icon}
+                </span>
+                <span class="font-mono text-[12.5px] text-[#d4d4d0] truncate">${d.path}</span>
+              </div>
+              <div class="flex items-center gap-2.5 font-mono text-[12px] shrink-0">
+                ${d.added ? `<span class="text-[#73c991]">${d.added}</span>` : ''}
+                ${d.removed ? `<span class="text-[#f14c4c]">${d.removed}</span>` : ''}
+              </div>
+            </button>
+            ${
+              isOpen
+                ? `<pre class="px-4 py-3 bg-obsidian-950 border-t border-[#262624] font-mono text-[11.5px] text-[#d4d4d0] overflow-x-auto leading-relaxed">${escHtml(d.code)}</pre>`
+                : ''
+            }
+          </div>
+        `;
+      }).join('');
+
+      const repliesHtml = thread.replies.map(r => `
+        <div class="pt-3 border-t border-obsidian-700 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-1 rounded-lg bg-[#262624] text-white text-xs font-medium">${r.prompt}</span>
+            <span class="text-[11px] font-mono text-[#67dcf2]">${r.model} · ${GEO_CURRENCIES[currentGeo].zero}</span>
+          </div>
+          <div class="text-[13.5px] text-[#e6e6e3] leading-relaxed">${r.response}</div>
+          <div class="rounded-lg bg-obsidian-950 border border-obsidian-700 px-3.5 py-2 font-mono text-[11.5px] text-[#67dcf2] flex items-center justify-between">
+            <span>${r.patchSummary}</span>
+            <span>PASS · 44/44 tests</span>
+          </div>
+        </div>
+      `).join('');
+
+      stream.innerHTML = `
+        <div class="space-y-0.5 pl-1">
+          ${stepsHtml}
+        </div>
+
+        <p class="text-[14px] text-[#ecece8] leading-[1.65] font-normal">
+          ${thread.summaryHtml}
+        </p>
+
+        <div class="rounded-xl bg-[#1d1d1b] border border-[#2c2c29] overflow-hidden">
+          <div class="px-4 py-2.5 bg-[#21211f] border-b border-[#2c2c29] flex items-center justify-between text-[12.5px]">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-[#ecece8]">${thread.filesChangedCount}</span>
+              <span class="text-[11px] text-[#8a8a86] hidden sm:inline">(click any file to inspect unified diff)</span>
+            </div>
+            <div class="flex items-center gap-2.5 font-mono text-[12px]">
+              <span class="text-[#73c991]">${thread.totalAdded}</span>
+              <span class="text-[#f14c4c]">${thread.totalRemoved}</span>
+            </div>
+          </div>
+          <div>
+            ${diffRowsHtml}
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <p class="text-[14px] text-[#ecece8]">${thread.followUp}</p>
+          <button
+            onclick="triggerQuickPrompt('Yes, add the Cmd+Shift+L keyboard shortcut and run bun test')"
+            class="px-3 py-1 rounded-lg bg-[#262624] hover:bg-[#32322f] text-xs font-mono text-[#67dcf2] border border-[#363633] transition-colors"
+          >
+            Yes, implement shortcut →
+          </button>
+        </div>
+
+        ${repliesHtml}
+      `;
+    }
+
+    function selectThread(threadId) {
+      activeThreadId = threadId;
+      renderThreadSidebar();
+      renderActiveThread();
+      // Auto-close mobile sidebar drawer after choosing a thread on small viewports
+      if (window.innerWidth < 640) {
+        const sb = document.getElementById('workspace-sidebar');
+        const bd = document.getElementById('workspace-mobile-backdrop');
+        if (sb && !sb.classList.contains('hidden')) {
+          sb.classList.add('hidden');
+          sb.classList.remove('flex');
+        }
+        if (bd) bd.classList.add('hidden');
+      }
+    }
+
+    function cycleThread(direction) {
+      const idx = THREAD_ORDER.indexOf(activeThreadId);
+      const nextIdx = (idx + direction + THREAD_ORDER.length) % THREAD_ORDER.length;
+      selectThread(THREAD_ORDER[nextIdx]);
+    }
+
+    function resetToDefaultThread() {
+      selectThread('dark-mode');
+    }
+
+    function startNewChatThread() {
+      const input = document.getElementById('workspace-composer-input');
+      if (input) {
+        input.focus();
+        input.placeholder = 'New thread initialized — ask Sonnet, Opus, Tera, or Argon anything (Rp 0)...';
+      }
+    }
+
+    function toggleStepDetail(key) {
+      expandedSteps[key] = !expandedSteps[key];
+      renderActiveThread();
+    }
+
+    function toggleDiffDetail(key) {
+      expandedDiffs[key] = !expandedDiffs[key];
+      renderActiveThread();
+    }
+
+    function toggleAllDiffs() {
+      const thread = WORKSPACE_THREADS[activeThreadId];
+      if (!thread) return;
+      const firstKey = `${activeThreadId}-diff-0`;
+      const targetState = !expandedDiffs[firstKey];
+      thread.diffs.forEach((_, idx) => {
+        expandedDiffs[`${activeThreadId}-diff-${idx}`] = targetState;
+      });
+      renderActiveThread();
+    }
+
+    function toggleSidebarCollapse() {
+      const sb = document.getElementById('workspace-sidebar');
+      if (sb) sb.classList.toggle('sm:flex');
+    }
+
+    function toggleMobileSidebar() {
+      const sb = document.getElementById('workspace-sidebar');
+      const bd = document.getElementById('workspace-mobile-backdrop');
+      if (!sb) return;
+      const isHidden = sb.classList.contains('hidden');
+      if (isHidden) {
+        sb.classList.remove('hidden');
+        sb.classList.add('flex');
+        if (bd) bd.classList.remove('hidden');
+      } else {
+        sb.classList.add('hidden');
+        sb.classList.remove('flex');
+        if (bd) bd.classList.add('hidden');
+      }
+    }
+
+    function toggleTerminalDrawer() {
+      const drawer = document.getElementById('workspace-terminal-drawer');
+      if (drawer) drawer.classList.toggle('hidden');
+    }
+
+    function toggleFolder() {
+      const list = document.getElementById('thread-list-container');
+      const chev = document.getElementById('folder-chevron');
+      if (list) list.classList.toggle('hidden');
+      if (chev) chev.classList.toggle('-rotate-90');
+    }
+
+    function selectWorkspaceRail(item) {
+      if (item === 'home') resetToDefaultThread();
+    }
+
+    function toggleModelDropdown() {
+      const menu = document.getElementById('composer-model-menu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    function selectWorkspaceModel(modelName, dotClass) {
+      currentWorkspaceModel = modelName;
+      const label = document.getElementById('composer-model-label');
+      const dot = document.getElementById('composer-model-dot');
+      const menu = document.getElementById('composer-model-menu');
+      if (label) label.textContent = modelName;
+      if (dot) dot.className = `w-2 h-2 rounded-full ${dotClass}`;
+      if (menu) menu.classList.add('hidden');
+    }
+
+    function activateModelInWorkspace(modelName, dotClass) {
+      selectWorkspaceModel(modelName, dotClass);
+      const ws = document.getElementById('workspace-section');
+      if (ws) ws.scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => focusWorkspaceComposer(), 550);
+    }
+
+    function focusWorkspaceComposer() {
+      const input = document.getElementById('workspace-composer-input');
+      if (input) input.focus();
+    }
+
+    function triggerQuickPrompt(text) {
+      const input = document.getElementById('workspace-composer-input');
+      if (!input) return;
+      input.value = text;
+      handleWorkspaceSubmit(new Event('submit'));
+    }
+
+    function handleWorkspaceSubmit(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('workspace-composer-input');
+      if (!input) return;
+      const prompt = input.value.trim();
+      if (!prompt) return;
+
+      input.value = '';
+      const thread = WORKSPACE_THREADS[activeThreadId];
+      thread.replies.push({
+        prompt,
+        model: currentWorkspaceModel,
+        response: `Executed via <strong>${currentWorkspaceModel}</strong>. Registered <code class="px-1.5 py-0.5 rounded bg-[#262624] font-mono text-xs">Cmd+Shift+L</code> keybinding in <code class="px-1.5 py-0.5 rounded bg-[#262624] font-mono text-xs">src/components/theme-toggle.tsx</code> and synced state with OpenCode & mobile workspace.`,
+        patchSummary: `Edited 2 files (+19 -2) · bun test: 44 passed (14ms)`
+      });
+
+      renderActiveThread();
+      const stream = document.getElementById('workspace-stream');
+      if (stream) stream.scrollTop = stream.scrollHeight;
+    }
+
+    // ==========================================================================
+    // 6. POCKET IDE (MOBILE PHONE WORKSPACE) LOGIC
+    // ==========================================================================
+    let currentMobileMode = 'agent';
+
+    function switchMobileScreen(mode) {
+      currentMobileMode = mode;
+      ['agent', 'terminal', 'voice', 'opencode'].forEach(m => {
+        const btn = document.getElementById(`mob-btn-${m}`);
+        const tab = document.getElementById(`mob-tab-${m}`);
+        if (btn) {
+          if (m === mode) {
+            btn.className = 'w-full p-4 rounded-2xl bg-[#041024]/85 border border-white text-left transition-all flex items-center justify-between';
+          } else {
+            btn.className = 'w-full p-4 rounded-2xl frosted-pill hover:bg-[#082046]/60 text-left transition-all flex items-center justify-between';
+          }
+        }
+        if (tab) {
+          if (m === mode) {
+            tab.className = 'py-1.5 rounded-lg bg-obsidian-800 text-white text-center';
+          } else {
+            tab.className = 'py-1.5 rounded-lg hover:bg-obsidian-850 text-[#8a8a86] text-center';
+          }
+        }
+      });
+      renderMobileScreen();
+    }
+
+    function renderMobileScreen() {
+      const container = document.getElementById('mobile-screen-content');
+      if (!container) return;
+      const zero = GEO_CURRENCIES[currentGeo].zero;
+
+      if (currentMobileMode === 'agent') {
+        container.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-1 rounded-lg bg-[#262624] text-white text-xs font-semibold">Dark mode toggle</span>
+            <span class="text-[11px] font-mono text-[#67dcf2]">SYNCED · ${zero}</span>
+          </div>
+
+          <div class="space-y-1.5 text-[11.5px] font-mono text-[#d4d4d0] bg-obsidian-950 p-3 rounded-xl border border-obsidian-700">
+            <div class="flex justify-between"><span>Create theme-toggle.tsx</span><span class="text-[#67dcf2]">DONE</span></div>
+            <div class="flex justify-between"><span>Edit src/lib/theme.ts</span><span class="text-[#67dcf2]">DONE</span></div>
+            <div class="flex justify-between"><span>Run bun test</span><span class="text-[#67dcf2]">42 PASSED</span></div>
+          </div>
+
+          <p class="text-xs text-[#d4d4d0] leading-relaxed">
+            Added a theme toggle under Settings → Appearance. Remembers explicit choice in <code class="bg-[#262624] px-1 py-0.5 rounded font-mono">localStorage</code>.
+          </p>
+
+          <div class="rounded-xl bg-[#1d1d1b] border border-obsidian-700 overflow-hidden text-xs">
+            <div class="px-3 py-2 bg-[#232321] flex justify-between font-semibold text-white">
+              <span>3 files changed</span>
+              <span class="font-mono"><span class="text-[#73c991]">+84</span> <span class="text-[#f14c4c]">-6</span></span>
+            </div>
+            <div class="divide-y divide-obsidian-700 font-mono text-[11px] text-[#d4d4d0]">
+              <div class="px-3 py-2 flex justify-between"><span>src/app/settings/page.tsx</span><span class="text-[#73c991]">+41 -4</span></div>
+              <div class="px-3 py-2 flex justify-between"><span>src/components/theme-toggle.tsx</span><span class="text-[#73c991]">+25</span></div>
+              <div class="px-3 py-2 flex justify-between"><span>src/lib/theme.ts</span><span class="text-[#73c991]">+18 -2</span></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1 font-mono">
+            <button onclick="approveMobilePR()" id="mob-approve-btn" class="py-2.5 px-3 rounded-xl bg-white text-[#041024] font-bold text-xs text-center">
+              Approve & Merge
+            </button>
+            <button onclick="switchMobileScreen('terminal')" class="py-2.5 px-3 rounded-xl bg-[#262624] text-white font-medium text-xs text-center">
+              View Tests →
+            </button>
+          </div>
+        `;
+      } else if (currentMobileMode === 'terminal') {
+        container.innerHTML = `
+          <div class="flex items-center justify-between font-mono">
+            <span class="text-xs font-bold text-white">MOBILE SANDBOX SHELL</span>
+            <span class="px-2 py-0.5 rounded bg-[#1fa8f5]/20 text-[#67dcf2] text-[10px]">42 PASSED</span>
+          </div>
+          <div class="rounded-xl bg-[#0c0c0b] border border-obsidian-700 p-3 font-mono text-[11px] space-y-1.5 text-[#d4d4d0]">
+            <div><span class="text-[#67dcf2]">$</span> bun test --watch</div>
+            <div class="text-[#9e9e99]">PASS theme-toggle.test.tsx (14) <span class="text-[#67dcf2]">6ms</span></div>
+            <div class="text-[#9e9e99]">PASS theme.test.ts (18) <span class="text-[#67dcf2]">4ms</span></div>
+            <div class="text-[#9e9e99]">PASS settings/page.test.tsx (10) <span class="text-[#67dcf2]">9ms</span></div>
+            <div class="pt-2 border-t border-obsidian-700 text-[#67dcf2] font-semibold">
+              Pass: 42 · Fail: 0 · Time: 19ms · Cost: ${zero}
+            </div>
+          </div>
+        `;
+      } else if (currentMobileMode === 'voice') {
+        container.innerHTML = `
+          <div class="flex items-center justify-between font-mono">
+            <span class="text-xs font-bold text-white">VOICE-TO-PR DISPATCH</span>
+            <span class="px-2 py-0.5 rounded bg-[#1fa8f5]/20 text-[#67dcf2] text-[10px]">OPUS 4.5</span>
+          </div>
+          <div class="rounded-xl bg-obsidian-950 border border-obsidian-700 p-5 text-center space-y-3">
+            <div class="w-12 h-12 rounded-full bg-[#1fa8f5]/20 border border-[#67dcf2] mx-auto flex items-center justify-center font-mono text-xs text-[#67dcf2]">
+              REC
+            </div>
+            <p class="font-editorial italic text-lg text-white">
+              "Extract the rate-limiter middleware into a shared package and run all webhook tests."
+            </p>
+            <div class="font-mono text-[10px] text-[#8a8a86]">
+              Transcribed in 90ms · Routed to Opus 4.5 (${zero})
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="flex items-center justify-between font-mono">
+            <span class="text-xs font-bold text-white">OPENCODE PEER TUNNEL</span>
+            <span class="px-2 py-0.5 rounded bg-[#1fa8f5]/20 text-[#67dcf2] text-[10px]">ENCRYPTED</span>
+          </div>
+          <div class="rounded-xl bg-obsidian-950 border border-obsidian-700 p-3.5 space-y-2 text-xs font-mono">
+            <div class="flex justify-between"><span class="text-[#8a8a86]">WORKSTATION</span><span class="text-white">macbook-pro.local</span></div>
+            <div class="flex justify-between"><span class="text-[#8a8a86]">DAEMON</span><span class="text-[#67dcf2]">opencode v0.2.8</span></div>
+            <div class="flex justify-between"><span class="text-[#8a8a86]">SWARM</span><span class="text-white">Sonnet + Opus + Tera</span></div>
+            <div class="flex justify-between"><span class="text-[#8a8a86]">SESSION BILLING</span><span class="text-[#67dcf2] font-bold">${zero}</span></div>
+          </div>
+        `;
+      }
+    }
+
+    function approveMobilePR() {
+      const btn = document.getElementById('mob-approve-btn');
+      if (btn) {
+        btn.textContent = 'Merged to main';
+        btn.className = 'py-2.5 px-3 rounded-xl bg-[#3ad0f8] text-[#041024] font-bold text-xs text-center';
+      }
+    }
+
+    function handleMobilePromptSubmit() {
+      const input = document.getElementById('mobile-composer-input');
+      if (!input || !input.value.trim()) return;
+      const val = input.value.trim();
+      input.value = '';
+      switchMobileScreen('agent');
+      const container = document.getElementById('mobile-screen-content');
+      if (container) {
+        container.insertAdjacentHTML(
+          'afterbegin',
+          `<div class="p-2.5 rounded-xl bg-[#0d56b8]/30 border border-[#67dcf2]/40 text-xs text-white font-mono">
+            <div class="text-[10px] text-[#67dcf2]">DISPATCHED FROM PHONE (${GEO_CURRENCIES[currentGeo].zero}):</div>
+            <div class="mt-0.5">${val}</div>
+          </div>`
+        );
+      }
+    }
+
+    // ==========================================================================
+    // 7. OPENCODE BRIDGE & 20-INTEGRATION ARCHITECTURAL HAIRLINE LEDGER
+    // ==========================================================================
+    let currentOpenCodeTab = 'cli';
+
+    function switchOpenCodeTab(tab) {
+      currentOpenCodeTab = tab;
+      ['cli', 'json', 'mcp'].forEach(t => {
+        const btn = document.getElementById(`oc-tab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'w-full px-4 py-3 rounded-xl bg-white text-[#041024] font-semibold flex items-center justify-between transition-all';
+          } else {
+            btn.className = 'w-full px-4 py-3 rounded-xl bg-obsidian-850 text-[#d4d4d0] hover:text-white flex items-center justify-between transition-all';
+          }
+        }
+      });
+      renderOpenCodeTab();
+    }
+
+    function renderOpenCodeTab() {
+      const fileEl = document.getElementById('oc-code-filename');
+      const codeEl = document.getElementById('oc-code-content');
+      if (!fileEl || !codeEl) return;
+      const zero = GEO_CURRENCIES[currentGeo].zero;
+
+      if (currentOpenCodeTab === 'cli') {
+        fileEl.textContent = 'TERMINAL // OPENCODE ONE-LINE BRIDGE';
+        codeEl.textContent = `# 1. Bind Collins Free Frontier Provider into OpenCode\nnpx collins-ai@latest connect opencode\n\n# 2. Launch OpenCode with unlimited Opus 4.5, Sonnet 4.5, Tera 2.0 & Argon (${zero})\nopencode --provider collins --model opus-4.5 --free\n\n[OK] Connected to Collins Frontier Mesh (${zero} / unlimited tokens)\n[OK] Bidirectional sync with Desktop & Phone Workspace active`;
+      } else if (currentOpenCodeTab === 'json') {
+        fileEl.textContent = '~/.config/opencode/opencode.json';
+        codeEl.textContent = `{\n  "$schema": "https://opencode.ai/config.json",\n  "provider": {\n    "collins": {\n      "endpoint": "https://api.collins.dev/v1",\n      "cost": "${zero}",\n      "models": ["sonnet-4.5", "opus-4.5", "tera-2.0", "argon-ultra"]\n    }\n  },\n  "sync": {\n    "desktopWorkspace": true,\n    "mobilePocketIde": true\n  }\n}`;
+      } else {
+        fileEl.textContent = 'MCP SERVER // BIDIRECTIONAL STREAM';
+        codeEl.textContent = `$ opencode mcp serve --bridge collins\n\n[Collins MCP] Thread "Dark mode toggle" (+84 -6) mirrored\n[Collins MCP] Desktop IDE     <-> SYNCED\n[Collins MCP] Mobile Phone    <-> SYNCED\n[Collins MCP] Frontier Models <-> Sonnet, Opus, Tera, Argon (${zero})`;
+      }
+    }
+
+    function copyOpenCodeSnippet() {
+      const codeEl = document.getElementById('oc-code-content');
+      const btn = document.getElementById('copy-oc-btn');
+      if (!codeEl || !btn) return;
+      const temp = document.createElement('textarea');
+      temp.value = codeEl.textContent;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      btn.textContent = 'Copied to Clipboard';
+      setTimeout(() => (btn.textContent = 'Copy Snippet'), 1800);
+    }
+
+    const INTEGRATIONS_LIST = [
+      { idx: '.01', name: 'OpenCode CLI', cat: 'editors', tag: 'FLAGSHIP', desc: 'First-class terminal coding agent provider & 2-way thread sync.', cmd: 'opencode --provider collins --model opus-4.5 --free' },
+      { idx: '.02', name: 'Neovim', cat: 'editors', tag: 'LUA RPC', desc: 'Native collins.nvim buffer agent with Telescope diff picker.', cmd: 'nvim +CollinsConnect --headless' },
+      { idx: '.03', name: 'VS Code', cat: 'editors', tag: 'EXTENSION', desc: 'Full sidebar workspace + inline Sonnet & Argon completions.', cmd: 'code --install-extension collins.collins-vscode' },
+      { idx: '.04', name: 'Cursor', cat: 'editors', tag: 'ENDPOINT', desc: 'Drop-in zero-cost frontier model endpoint for Cursor Composer.', cmd: 'npx collins-ai connect cursor --free' },
+      { idx: '.05', name: 'Zed Editor', cat: 'editors', tag: 'ACP RUST', desc: 'Native Zed assistant panel integration via Collins ACP.', cmd: 'npx collins-ai connect zed' },
+      { idx: '.06', name: 'JetBrains IDEs', cat: 'editors', tag: 'INTELLIJ', desc: 'Works across IntelliJ IDEA, WebStorm, RustRover & GoLand.', cmd: 'npx collins-ai connect jetbrains' },
+      { idx: '.07', name: 'Tmux & Ghostty', cat: 'editors', tag: 'MULTIPLEX', desc: 'Split-pane terminal daemon for keyboard-driven workflows.', cmd: 'npx collins-ai connect tmux' },
+      { idx: '.08', name: 'GitHub Actions', cat: 'git', tag: 'CI/CD', desc: 'Autonomous PR review, commit synthesis & flaky test repair.', cmd: 'npx collins-ai connect github-actions' },
+      { idx: '.09', name: 'GitLab Pipelines', cat: 'git', tag: 'CI/CD', desc: 'Self-healing merge request pipelines powered by Argon Ultra.', cmd: 'npx collins-ai connect gitlab' },
+      { idx: '.10', name: 'Model Context Protocol', cat: 'workflow', tag: 'MCP CORE', desc: 'Attach any MCP server or expose Collins as an MCP host.', cmd: 'npx collins-ai mcp init' },
+      { idx: '.11', name: 'Docker Sandboxes', cat: 'cloud', tag: 'CONTAINER', desc: 'Isolated container execution for bun test & cargo test.', cmd: 'npx collins-ai connect docker' },
+      { idx: '.12', name: 'Kubernetes', cat: 'cloud', tag: 'CLUSTER', desc: 'Helm chart & manifest synthesis with Tera 2.0 2M context.', cmd: 'npx collins-ai connect k8s' },
+      { idx: '.13', name: 'Supabase', cat: 'cloud', tag: 'POSTGRES', desc: 'Auto-generate RLS policies, SQL migrations & edge functions.', cmd: 'npx collins-ai connect supabase' },
+      { idx: '.14', name: 'Vercel', cat: 'cloud', tag: 'EDGE', desc: 'Preview deployment log inspection and instant build repair.', cmd: 'npx collins-ai connect vercel' },
+      { idx: '.15', name: 'Cloudflare Workers', cat: 'cloud', tag: 'RUNTIME', desc: 'D1, KV, and Durable Objects synthesis with Opus 4.5.', cmd: 'npx collins-ai connect cloudflare' },
+      { idx: '.16', name: 'PostgreSQL & Prisma', cat: 'cloud', tag: 'SCHEMA', desc: 'Zero-downtime migration verification and index tuning.', cmd: 'npx collins-ai connect postgres' },
+      { idx: '.17', name: 'Linear', cat: 'workflow', tag: 'ISSUES', desc: 'Assign a Linear issue to @collins and wake up to a tested PR.', cmd: 'npx collins-ai connect linear' },
+      { idx: '.18', name: 'Slack ChatOps', cat: 'workflow', tag: 'BOT', desc: 'Trigger bug fixes from Slack threads and approve on mobile.', cmd: 'npx collins-ai connect slack' },
+      { idx: '.19', name: 'Raycast', cat: 'workflow', tag: 'LAUNCHER', desc: 'Query Tera 2M repository memory from anywhere via hotkey.', cmd: 'npx collins-ai connect raycast' },
+      { idx: '.20', name: 'Tailscale', cat: 'cloud', tag: 'MESH VPN', desc: 'Zero-config encrypted peer tunnel between phone and laptop.', cmd: 'npx collins-ai connect tailscale' }
+    ];
+
+    let activeIntegrationCategory = 'all';
+
+    function filterIntegrations(cat) {
+      activeIntegrationCategory = cat;
+      document.querySelectorAll('.int-cat-btn').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'int-cat-btn px-4 py-2 rounded-full bg-white text-[#041024] font-semibold transition-all';
+        } else {
+          btn.className = 'int-cat-btn px-4 py-2 rounded-full frosted-pill text-white hover:bg-white/20 transition-all';
+        }
+      });
+      renderIntegrationsGrid();
+    }
+
+    function previewIntegrationInTerminal(name, desc, cmd) {
+      const fileEl = document.getElementById('oc-code-filename');
+      const codeEl = document.getElementById('oc-code-content');
+      const zero = GEO_CURRENCIES[currentGeo].zero;
+      if (fileEl && codeEl) {
+        fileEl.textContent = `INTEGRATION BRIDGE // ${name.toUpperCase()}`;
+        codeEl.textContent = `# ${name} — ${desc}\n${cmd}\n\n[OK] ${name} bound to Collins Frontier Pool (Sonnet, Opus, Tera, Argon)\n[OK] Metered Billing: ${zero} (100% Free Forever)`;
+      }
+    }
+
+    function renderIntegrationsGrid() {
+      const grid = document.getElementById('integrations-grid');
+      const searchEl = document.getElementById('integration-search');
+      if (!grid) return;
+
+      const q = (searchEl ? searchEl.value : '').toLowerCase().trim();
+
+      const filtered = INTEGRATIONS_LIST.filter(item => {
+        const matchesCat = activeIntegrationCategory === 'all' || item.cat === activeIntegrationCategory;
+        const matchesSearch = !q || item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q) || item.tag.toLowerCase().includes(q);
+        return matchesCat && matchesSearch;
+      });
+
+      grid.innerHTML = filtered.map(item => `
+        <button
+          onclick="previewIntegrationInTerminal('${item.name.replace(/'/g, "\\'")}', '${item.desc.replace(/'/g, "\\'")}', '${item.cmd.replace(/'/g, "\\'")}')"
+          class="p-6 border-r border-b border-white/25 bg-[#041024]/25 hover:bg-white/15 text-left transition-colors flex flex-col justify-between group"
+        >
+          <div>
+            <div class="flex items-center justify-between font-mono text-[11px] text-[#67dcf2] mb-3">
+              <span>${item.idx}</span>
+              <span>${item.tag}</span>
+            </div>
+            <h4 class="font-display font-bold text-lg text-white group-hover:text-[#67dcf2] transition-colors mb-2">
+              ${item.name}
+            </h4>
+            <p class="text-xs text-white/80 leading-relaxed mb-5">
+              ${item.desc}
+            </p>
+          </div>
+          <div class="pt-3 border-t border-white/15 w-full flex items-center justify-between font-mono text-[11px] text-[#c6ecff] group-hover:text-white">
+            <span class="truncate pr-2">${item.cmd}</span>
+            <span class="shrink-0">BIND →</span>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    // Close model popover when clicking outside
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('composer-model-menu');
+      const btn = document.getElementById('composer-model-btn');
+      if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // ==========================================================================
+    // 8. GET STARTED — install flow. The workstation above is a read-only
+    //    preview; anything that would do real work routes through here, and a
+    //    finished install redirects to workstation.html.
+    // ==========================================================================
+    const GS_BUILDS = {
+      win:   { label: 'Windows', file: 'Collins-Setup-1.4.2.exe',       size: 84.2,
+               install: 'Open <b>Collins-Setup-1.4.2.exe</b> from Downloads and click through. No admin rights needed.' },
+      mac:   { label: 'macOS',   file: 'Collins-1.4.2-universal.dmg',   size: 96.8,
+               install: 'Open the <b>.dmg</b> and drag Collins into Applications. Apple silicon and Intel.' },
+      linux: { label: 'Linux',   file: 'Collins-1.4.2-x86_64.AppImage', size: 101.5,
+               install: 'Run <code class="font-mono text-[11.5px] px-1 py-0.5 rounded bg-[#041024]/[0.06]">chmod +x</code> on the AppImage, then open it.' },
+      cli:   { label: 'CLI',     file: 'npm · @collins/agent',          size: 0,
+               install: 'Run it in any project folder. It links the folder and opens your workstation.' }
+    };
+    const GS_REASONS = {
+      composer: 'Prompts run in your own workstation, not in this preview. Install Collins to start a session.',
+      ads: 'The ad dashboard lives inside the workstation. Install Collins to start earning tokens.',
+      default: 'Three steps, about a minute. Your workstation opens by itself when it\'s done.'
+    };
+    const GS = { os: 'win', phase: 'idle', reason: null, timers: [] };
+
+    function gsDetectOS() {
+      const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '';
+      if (/mac|iphone|ipad/i.test(p)) return 'mac';
+      if (/linux|x11/i.test(p) && !/android/i.test(navigator.userAgent)) return 'linux';
+      return 'win';
+    }
+    function gsInstalled() { try { return localStorage.getItem('collins-installed') === '1'; } catch (e) { return false; } }
+    function gsMarkInstalled() { try { localStorage.setItem('collins-installed', '1'); } catch (e) {} }
+    function gsLater(ms, fn) { GS.timers.push(setTimeout(fn, ms)); }
+    function gsClearTimers() { GS.timers.forEach(clearTimeout); GS.timers = []; }
+
+    function gsSetStep(n, state) {
+      const li = document.querySelector(`.gs-step[data-step="${n}"]`);
+      if (!li) return;
+      li.classList.remove('is-active', 'is-done');
+      if (state) li.classList.add('is-' + state);
+      const dot = li.querySelector('.gs-dot');
+      if (dot) dot.innerHTML = state === 'done'
+        ? '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+        : state === 'active' ? '<span class="gs-spin"></span>' : String(n);
+    }
+
+    function gsWorkstationUrl(extra) {
+      return 'workstation.html' + (extra || '');
+    }
+
+    function openGetStarted(reason) {
+      GS.reason = typeof reason === 'string' ? reason : null;
+      const modal = document.getElementById('gs-modal');
+      if (!modal) return;
+      gsReset();
+      document.getElementById('gs-sub').textContent = GS_REASONS[GS.reason] || GS_REASONS.default;
+      document.getElementById('gs-installed').classList.toggle('hidden', !gsInstalled());
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => {
+        const first = document.getElementById(gsInstalled() ? 'gs-open-installed' : (GS.os === 'cli' ? 'gs-cli-copy' : 'gs-download'));
+        if (first) first.focus();
+      }, 60);
+    }
+
+    function closeGetStarted() {
+      const modal = document.getElementById('gs-modal');
+      if (!modal || modal.classList.contains('hidden')) return;
+      if (GS.phase === 'opening') return; // redirect already under way
+      gsClearTimers();
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+
+    function gsReset() {
+      gsClearTimers();
+      GS.phase = 'idle';
+      [1, 2, 3].forEach(n => gsSetStep(n, null));
+      document.getElementById('gs-progress').classList.add('hidden');
+      document.getElementById('gs-bar').style.width = '0%';
+      document.getElementById('gs-install-status').textContent = '';
+      document.getElementById('gs-open-status').textContent = '';
+      document.getElementById('gs-tabs').classList.remove('pointer-events-none', 'opacity-50');
+      setGsOs(GS.os);
+    }
+
+    function setGsOs(os) {
+      if (GS.phase !== 'idle' || !GS_BUILDS[os]) return;
+      GS.os = os;
+      const b = GS_BUILDS[os];
+      document.querySelectorAll('#gs-tabs button').forEach(btn => {
+        const on = btn.dataset.os === os;
+        btn.setAttribute('aria-selected', on);
+        btn.className = 'flex-1 py-1.5 rounded-lg transition-all ' + (on ? 'bg-[#041024] text-white font-semibold' : 'text-[#041024]/65 hover:text-[#041024]');
+      });
+      document.getElementById('gs-file').textContent = os === 'cli' ? 'Needs Node 18+ or Bun' : `${b.file} · ${b.size.toFixed(1)} MB`;
+      document.getElementById('gs-step1-title').textContent = os === 'cli' ? 'Copy the command' : 'Download';
+      document.getElementById('gs-download-label').textContent = `Download for ${b.label}`;
+      document.getElementById('gs-download').classList.toggle('hidden', os === 'cli');
+      document.getElementById('gs-cli').classList.toggle('hidden', os !== 'cli');
+      document.getElementById('gs-install-text').innerHTML = b.install;
+    }
+
+    function gsCopyCli() {
+      const input = document.getElementById('gs-cli-input');
+      const btn = document.getElementById('gs-cli-copy');
+      const done = () => { btn.textContent = 'Copied'; setTimeout(() => (btn.textContent = 'Copy'), 1600); };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(input.value).then(done, () => { input.select(); document.execCommand('copy'); done(); });
+      else { input.select(); document.execCommand('copy'); done(); }
+    }
+
+    function startGsDownload() {
+      if (GS.phase !== 'idle') return;
+      GS.phase = 'downloading';
+      const b = GS_BUILDS[GS.os];
+      document.getElementById('gs-tabs').classList.add('pointer-events-none', 'opacity-50');
+      document.getElementById('gs-download').classList.add('hidden');
+      document.getElementById('gs-progress').classList.remove('hidden');
+      gsSetStep(1, 'active');
+
+      const bar = document.getElementById('gs-bar');
+      const bytes = document.getElementById('gs-bytes');
+      const eta = document.getElementById('gs-eta');
+      let got = 0;
+      const tick = () => {
+        const speed = 26 + Math.random() * 18;            // MB/s, a bit jumpy like a real link
+        got = Math.min(b.size, got + speed * 0.08);
+        bar.style.width = (got / b.size * 100).toFixed(1) + '%';
+        bytes.textContent = `${got.toFixed(1)} / ${b.size.toFixed(1)} MB`;
+        const left = (b.size - got) / speed;
+        eta.textContent = got >= b.size ? 'Done' : `${Math.max(1, Math.ceil(left))}s left · ${speed.toFixed(0)} MB/s`;
+        if (got < b.size) gsLater(80, tick);
+        else gsLater(250, gsInstallPhase);
+      };
+      gsLater(300, tick);
+    }
+
+    function gsInstallPhase() {
+      GS.phase = 'installing';
+      gsSetStep(1, 'done');
+      gsSetStep(2, 'active');
+      const status = document.getElementById('gs-install-status');
+      const lines = GS.os === 'cli'
+        ? ['Waiting for the CLI…', 'Linked to this browser']
+        : ['Verifying signature…', 'Unpacking…', 'Installed'];
+      lines.forEach((l, i) => gsLater(i * 520, () => (status.textContent = l)));
+      gsLater(lines.length * 520 + 150, gsOpenPhase);
+    }
+
+    function gsOpenPhase() {
+      GS.phase = 'opening';
+      gsSetStep(2, 'done');
+      gsSetStep(3, 'active');
+      gsMarkInstalled();
+      gsUpdateCtaLabels();
+      document.getElementById('gs-open-status').textContent = 'Opening your workstation…';
+      gsLater(900, () => { window.location.href = gsWorkstationUrl('?welcome=' + GS.os); });
+    }
+
+    function gsCliContinue() {
+      if (GS.phase !== 'idle') return;
+      document.getElementById('gs-tabs').classList.add('pointer-events-none', 'opacity-50');
+      gsSetStep(1, 'done');
+      gsInstallPhase();
+    }
+
+    function goToWorkstation() {
+      gsMarkInstalled();
+      window.location.href = gsWorkstationUrl();
+    }
+
+    function gsUpdateCtaLabels() {
+      if (!gsInstalled()) return;
+      document.querySelectorAll('.gs-cta-label').forEach(el => (el.textContent = 'Open workstation'));
+    }
+
+    // The preview is read-only: anything that would start real work asks to install first.
+    function handleWorkspaceSubmit(e) { if (e && e.preventDefault) e.preventDefault(); openGetStarted('composer'); }
+    function triggerQuickPrompt() { openGetStarted('composer'); }
+    function startNewChatThread() { openGetStarted('composer'); }
+    function focusWorkspaceComposer() { openGetStarted('composer'); }
+    function activateModelInWorkspace(modelName, dotClass) {
+      selectWorkspaceModel(modelName, dotClass);
+      const ws = document.getElementById('workspace-section');
+      if (ws) ws.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // CLI drawer: copy the command, then go straight to the workstation.
+    function handleDrawerSubmit(e) {
+      if (e) e.preventDefault();
+      copyDeployCommand();
+      const label = document.getElementById('drawer-submit-label');
+      if (label) label.textContent = 'Copied — opening workstation…';
+      gsMarkInstalled();
+      setTimeout(() => { window.location.href = 'workstation.html?welcome=cli'; }, 700);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeGetStarted();
+    });
+
+    function gsShowTokenBalance() {
+      let tokens = 0;
+      try { tokens = Number(JSON.parse(localStorage.getItem('collins-ad-state') || '{}').tokens) || 0; } catch (e) {}
+      const el = document.getElementById('ad-sidebar-tokens');
+      if (!el) return;
+      el.textContent = (tokens >= 1e6 ? (tokens / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+        : tokens >= 1e3 ? Math.round(tokens / 1e3) + 'K' : tokens) + ' tok';
+    }
+
+    // Initialize everything on load
+    window.onload = function () {
+      initQuantumPrismWebGL();
+      renderThreadSidebar();
+      renderActiveThread();
+      renderMobileScreen();
+      renderOpenCodeTab();
+      renderIntegrationsGrid();
+      autoDetectVisitorGeo();
+      GS.os = gsDetectOS();
+      gsShowTokenBalance();
+      gsUpdateCtaLabels();
+    };
+  </script>
+
+  <style>
+    .chamfer-modal-tr { clip-path: polygon(0 0, calc(100% - 38px) 0, 100% 38px, 100% 100%, 0 100%); }
+    .gs-pop { animation: gsPop .38s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    @keyframes gsPop { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+    .gs-dot { width: 28px; height: 28px; border-radius: 999px; border: 1px solid rgba(4,16,36,.18); display: grid; place-items: center;
+              font: 500 11px 'JetBrains Mono', monospace; color: rgba(4,16,36,.6); background: #fff; flex-shrink: 0; }
+    .gs-step.is-active .gs-dot { background: #041024; border-color: #041024; color: #fff; }
+    .gs-step.is-done .gs-dot { background: #1fa8f5; border-color: #1fa8f5; color: #fff; }
+    .gs-step.is-done .gs-line { background: #1fa8f5; }
+    .gs-line { width: 1px; flex: 1; background: rgba(4,16,36,.12); margin-top: 4px; }
+    .gs-spin { width: 12px; height: 12px; border-radius: 999px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; animation: gsSpin .7s linear infinite; }
+    @keyframes gsSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .gs-pop, .gs-spin { animation: none; } }
+  </style>
+
+  <div id="gs-modal" class="fixed inset-0 z-[70] hidden items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="gs-title">
+    <div class="absolute inset-0 bg-[#041024]/60 backdrop-blur-md" onclick="closeGetStarted()"></div>
+
+    <div class="gs-pop relative w-full max-w-[520px] max-h-[calc(100svh-1.5rem)] overflow-y-auto bg-white text-[#041024] rounded-[22px] chamfer-modal-tr shadow-2xl">
+      <button onclick="closeGetStarted()" title="Close [Esc]" aria-label="Close" class="absolute top-5 right-12 w-8 h-8 rounded-full hover:bg-[#041024]/5 flex items-center justify-center text-[#041024]/60 hover:text-[#041024] transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div class="p-6 sm:p-8">
+        <div class="pr-16">
+          <div class="flex items-baseline gap-2">
+            <span class="font-editorial italic text-[15px] text-[#0d56b8]">Get started</span>
+            <span class="dynamic-zero-price font-sans text-[11px] font-semibold text-[#0d56b8]">Rp 0</span>
+          </div>
+          <h2 id="gs-title" class="mt-1 font-display font-extrabold text-[28px] sm:text-[32px] leading-[1.02] tracking-tight">Install Collins</h2>
+          <p id="gs-sub" class="mt-2.5 text-[13px] text-[#041024]/65 leading-relaxed">Three steps, about a minute.</p>
+        </div>
+
+        <div id="gs-installed" class="hidden mt-5 p-3.5 rounded-xl bg-[#f0f8ff] border border-[#0d56b8]/15 flex items-center justify-between gap-3">
+          <div class="text-[12.5px] leading-snug">
+            <div class="font-semibold">Collins is already on this device.</div>
+            <div class="text-[#041024]/60">Skip the install and jump back in.</div>
+          </div>
+          <button id="gs-open-installed" onclick="goToWorkstation()" class="shrink-0 px-3.5 py-2 rounded-lg bg-[#041024] text-white text-[12px] font-semibold hover:bg-[#0d56b8] transition-colors">Open →</button>
+        </div>
+
+        <div id="gs-tabs" role="tablist" aria-label="Platform" class="mt-6 flex items-center gap-1 bg-[#f0f8ff] p-1 rounded-xl border border-[#0d56b8]/15 font-mono text-[11px] transition-opacity">
+          <button role="tab" data-os="win" onclick="setGsOs('win')">Windows</button>
+          <button role="tab" data-os="mac" onclick="setGsOs('mac')">macOS</button>
+          <button role="tab" data-os="linux" onclick="setGsOs('linux')">Linux</button>
+          <button role="tab" data-os="cli" onclick="setGsOs('cli')">CLI</button>
+        </div>
+
+        <ol class="mt-6">
+          <li class="gs-step flex gap-4" data-step="1">
+            <div class="flex flex-col items-center"><span class="gs-dot">1</span><span class="gs-line"></span></div>
+            <div class="flex-1 min-w-0 pb-6">
+              <div id="gs-step1-title" class="font-semibold text-[14px] leading-7">Download</div>
+              <div id="gs-file" class="font-mono text-[11.5px] text-[#041024]/55">—</div>
+
+              <button id="gs-download" onclick="startGsDownload()" class="mt-3 w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-[#67dcf2] via-[#1fa8f5] to-[#0d56b8] text-white font-medium text-[13px] flex items-center justify-between shadow-md hover:brightness-105 active:scale-[0.99] transition-all">
+                <span id="gs-download-label">Download</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0l-5-5m5 5l5-5M5 20h14"/></svg>
+              </button>
+
+              <div id="gs-progress" class="hidden mt-3.5">
+                <div class="h-1.5 rounded-full bg-[#041024]/10 overflow-hidden"><div id="gs-bar" class="h-full rounded-full bg-gradient-to-r from-[#1fa8f5] to-[#0d56b8]" style="width:0%"></div></div>
+                <div class="mt-1.5 flex justify-between font-mono text-[10.5px] text-[#041024]/55"><span id="gs-bytes">0.0 MB</span><span id="gs-eta">Starting…</span></div>
+              </div>
+
+              <div id="gs-cli" class="hidden mt-3 space-y-2.5">
+                <div class="relative">
+                  <input id="gs-cli-input" readonly value="npx @collins/agent@latest init" class="w-full pl-4 pr-20 py-3 rounded-xl bg-[#f4fbff] border border-[#0d56b8]/25 font-mono text-[12px] text-[#041024] focus:outline-none focus:border-[#0d56b8]" />
+                  <button id="gs-cli-copy" onclick="gsCopyCli()" class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-[#041024] text-white font-mono text-[10.5px] hover:bg-[#0d56b8] transition-colors">Copy</button>
+                </div>
+                <button onclick="gsCliContinue()" class="w-full py-3 px-5 rounded-xl border border-[#041024]/15 hover:border-[#041024]/40 text-[13px] font-medium flex items-center justify-between transition-colors">
+                  <span>I've run it — continue</span><span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
+          </li>
+
+          <li class="gs-step flex gap-4" data-step="2">
+            <div class="flex flex-col items-center"><span class="gs-dot">2</span><span class="gs-line"></span></div>
+            <div class="flex-1 min-w-0 pb-6">
+              <div class="font-semibold text-[14px] leading-7">Install</div>
+              <p id="gs-install-text" class="text-[12.5px] text-[#041024]/65 leading-relaxed"></p>
+              <div id="gs-install-status" class="mt-1 font-mono text-[11px] text-[#0d56b8] min-h-[16px]" aria-live="polite"></div>
+            </div>
+          </li>
+
+          <li class="gs-step flex gap-4" data-step="3">
+            <div class="flex flex-col items-center"><span class="gs-dot">3</span></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-[14px] leading-7">Open your workstation</div>
+              <p class="text-[12.5px] text-[#041024]/65 leading-relaxed">No sign-up. Threads and your ad-token balance stay on this device.</p>
+              <div id="gs-open-status" class="mt-1 font-mono text-[11px] text-[#0d56b8] min-h-[16px]" aria-live="polite"></div>
+            </div>
+          </li>
+        </ol>
+
+        <div class="mt-5 pt-4 border-t border-[#041024]/10 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+          <button onclick="goToWorkstation()" class="text-[#041024]/60 hover:text-[#041024] transition-colors">Already installed? <span class="font-semibold text-[#0d56b8]">Open workstation →</span></button>
+          <span class="font-mono text-[10.5px] text-[#041024]/40">v1.4.2 · signed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
