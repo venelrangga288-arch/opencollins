@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -64,12 +64,12 @@ interface AuditRow { id: string; action: string; target: string | null; createdA
 interface UsageUser { userId: string; email: string; requests: number; inputTokens: number; outputTokens: number; totalTokens: number }
 interface UsageModel { model: string; requests: number; totalTokens: number }
 
-const TABS = ["Overview", "Users", "API Keys", "Usage", "Test Chat", "Requests", "Audit"] as const;
+const TABS = ["Overview", "Users", "API Keys", "Usage", "Test Chat", "Agents", "Requests", "Audit"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_GLYPH: Record<Tab, string> = {
   Overview: "◧", Users: "◇", "API Keys": "⚿", Usage: "◫",
-  "Test Chat": "▷", Requests: "⇄", Audit: "⌗",
+  "Test Chat": "▷", Agents: "◈", Requests: "⇄", Audit: "⌗",
 };
 
 export default function OperatorConsolePage() {
@@ -237,6 +237,10 @@ export default function OperatorConsolePage() {
 
           {tab === "Test Chat" && (
             <TestChatTab token={token} models={models.data?.data?.map((m) => m.id) ?? []} />
+          )}
+
+          {tab === "Agents" && (
+            <OperatorAgentsTab token={token} users={users.data?.data ?? []} models={models.data?.data?.map((m) => m.id) ?? []} />
           )}
 
           {tab === "Requests" && (
@@ -531,8 +535,146 @@ function TestChatTab({ token, models }: { token: string; models: string[] }) {
   );
 }
 
-function Card({ label, value }: { label: string; value?: number | string }) {
+interface OpAgent {
+  id: string;
+  name: string;
+  model: string;
+  status: string;
+  runBy: string;
+  totalTokens: number;
+  error: string | null;
+  createdAt: string;
+  user: { email: string };
+  steps: Array<{ index: number; status: string; tokens: number }>;
+}
+
+function OperatorAgentsTab({ token, users, models }: { token: string; users: UserRow[]; models: string[] }) {
+  const [agents, setAgents] = useState<OpAgent[] | null>(null);
+  const [userId, setUserId] = useState("");
+  const [name, setName] = useState("");
+  const [model, setModel] = useState("glm-5.3-flash");
+  const [prompts, setPrompts] = useState<string[]>([""]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    fetch(`${GATEWAY_URL}/api/v1/operator/agents`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => setAgents(j.data))
+      .catch((e) => setErr(e.message));
+  }, [token]);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(() => {
+      setAgents((cur) => {
+        if (cur?.some((a) => a.status === "RUNNING")) load();
+        return cur;
+      });
+    }, 4000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  async function deploy() {
+    setErr(null);
+    setNotice(null);
+    const list = prompts.map((p) => p.trim()).filter(Boolean);
+    if (!userId || !name.trim() || list.length === 0) {
+      setErr("user, agent name and at least one prompt required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await opFetch(token, "/api/v1/operator/agents/deploy", "POST", {
+        userId, name: name.trim(), model, prompts: list,
+      });
+      setNotice(`Agent "${res.agent.name}" deployed for user — running.`);
+      setName("");
+      setPrompts([""]);
+      load();
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancel(id: string) {
+    try {
+      await opFetch(token, `/api/v1/operator/agents/${id}/cancel`, "POST");
+      load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
   return (
+    <>
+      <div className="card p-4">
+        <div className="font-display text-sm font-bold text-haze-white">Deploy agent for a user</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <select value={userId} onChange={(e) => setUserId(e.target.value)} className="input-dark w-56">
+            <option value="">— select user —</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.email}</option>)}
+          </select>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Agent name" className="input-dark w-44" />
+          <select value={model} onChange={(e) => setModel(e.target.value)} className="input-dark w-48">
+            {models.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <button onClick={deploy} disabled={busy} className="btn-white disabled:opacity-40">
+            {busy ? "Deploying…" : "Deploy agent"}
+          </button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {prompts.map((p, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-2.5 font-mono text-[11px] text-haze-haze">{String(i + 1).padStart(2, "0")}</span>
+              <textarea
+                value={p}
+                onChange={(e) => setPrompts(prompts.map((x, j) => (j === i ? e.target.value : x)))}
+                rows={2}
+                placeholder={`Step ${i + 1} prompt…`}
+                className="input-dark flex-1 resize-none font-mono text-[12px]"
+              />
+              {prompts.length > 1 && (
+                <button onClick={() => setPrompts(prompts.filter((_, j) => j !== i))} className="mt-1.5 text-haze-haze hover:text-red-400">✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setPrompts([...prompts, ""])} disabled={prompts.length >= 20} className="btn-ghost mt-2 disabled:opacity-40">
+          + Add step
+        </button>
+      </div>
+
+      {notice && <div className="mt-4 rounded-md bg-emerald-500/10 px-4 py-2 text-[13px] text-emerald-300">{notice}</div>}
+      {err && <div className="mt-4 text-[13px] text-red-400">{err}</div>}
+
+      <div className="stat-label mb-3 mt-6">All agents — last 100</div>
+      <Table
+        headers={["Agent", "Owner", "Model", "Status", "Run by", "Steps", "Tokens", "Created", ""]}
+        rows={agents ?? []}
+        render={(a: OpAgent) => [
+          <span key={`n${a.id}`} className="text-haze-white">{a.name}</span>,
+          a.user?.email ?? "—",
+          <span key={`m${a.id}`} className="font-mono text-xs text-glint">{a.model}</span>,
+          <Badge key={`s${a.id}`} value={a.status} />,
+          a.runBy,
+          `${a.steps?.filter((s) => s.status === "COMPLETED").length ?? 0}/${a.steps?.length ?? 0}`,
+          a.totalTokens.toLocaleString(),
+          new Date(a.createdAt).toLocaleString(),
+          (a.status === "RUNNING" || a.status === "QUEUED") ? (
+            <button key={`c${a.id}`} onClick={() => cancel(a.id)} className="text-xs text-red-400 hover:underline">Cancel</button>
+          ) : "",
+        ]}
+      />
+      {agents?.length === 0 && <div className="card mt-4 p-8 text-center text-haze-haze">No agents deployed yet.</div>}
+    </>
+  );
+}
+
+function Card({ label, value }: { label: string; value?: number | string }) {  return (
     <div className="stat-card">
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value ?? "—"}</div>

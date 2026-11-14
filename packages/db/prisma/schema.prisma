@@ -55,6 +55,7 @@ model User {
   usageQuota   UsageQuota?
   requestLogs  RequestLog[]
   usageRecords UsageRecord[]
+  agents       Agent[]
 
   @@index([status])
 }
@@ -195,4 +196,57 @@ model AuditLog {
 
   @@index([actorId, createdAt])
   @@index([action])
+}
+
+// ── Agents: user-facing task runner ─────────────────────
+// A user (or operator) deploys an Agent: a named list of prompts executed
+// sequentially through the gateway provider. Progress is tracked per step so
+// the dashboard can poll live status.
+enum AgentStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AgentRunBy {
+  USER
+  OPERATOR
+}
+
+model Agent {
+  id          String      @id @default(cuid())
+  userId      String // owner (operator-deployed agents are owned by the target user)
+  name        String
+  model       String
+  status      AgentStatus @default(QUEUED)
+  runBy       AgentRunBy  @default(USER)
+  totalTokens Int         @default(0)
+  error       String?
+  createdAt   DateTime    @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  user  User       @relation(fields: [userId], references: [id])
+  steps AgentStep[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model AgentStep {
+  id        String   @id @default(cuid())
+  agentId   String
+  index     Int // 0-based execution order
+  prompt    String
+  status    AgentStatus @default(QUEUED)
+  result    String? // assistant content (truncated for storage)
+  tokens    Int      @default(0)
+  latencyMs Int?
+  error     String?
+  createdAt DateTime @default(now())
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, index])
 }

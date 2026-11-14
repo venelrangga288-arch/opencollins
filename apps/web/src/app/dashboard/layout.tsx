@@ -2,10 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "./session";
+
+// Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
+// only fall back to the local gateway when browsing from localhost.
+const GATEWAY_URL =
+  typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:4101"
+    : "";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", glyph: "◧" },
   { href: "/dashboard/playground", label: "Playground", glyph: "▷" },
+  { href: "/dashboard/agents", label: "Agents", glyph: "◈" },
   { href: "/dashboard/keys", label: "API Keys", glyph: "⚿" },
   { href: "/dashboard/usage", label: "Usage", glyph: "◫" },
   { href: "/dashboard/models", label: "Models", glyph: "≡" },
@@ -14,6 +23,7 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user } = useSession();
 
   return (
     <div className="flex h-screen overflow-hidden bg-obsidian-950 text-haze-bright">
@@ -74,13 +84,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </nav>
-        <div className="mt-auto p-3">
+        <div className="mt-auto space-y-2 p-3">
           <div className="card p-3">
             <div className="font-mono text-[10px] text-haze-haze">BASE URL</div>
             <div className="mt-1 break-all font-mono text-[10px] text-glint">
               {process.env.NEXT_PUBLIC_API_BASE ?? "https://dgtlz.my.id/api/v1"}
             </div>
           </div>
+          {user && (
+            <div className="card p-3">
+              <div className="truncate text-[12px] font-medium text-haze-white">{user.name ?? user.email}</div>
+              <div className="truncate font-mono text-[10px] text-haze-haze">{user.email} · {user.role}</div>
+              <button
+                onClick={async () => {
+                  await fetch(`${GATEWAY_URL}/api/v1/auth/logout`, { method: "POST", credentials: "include" });
+                  window.location.href = "/dashboard/login";
+                }}
+                className="mt-2 text-[11px] text-red-400 hover:underline"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

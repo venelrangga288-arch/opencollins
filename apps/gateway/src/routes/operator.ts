@@ -277,4 +277,110 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     const models = await adapter.listModels().catch(() => []);
     return { data: models };
   });
+
+  // ============ AGENTS (operator management) ============
+
+  /** All agents across all users, with owner email. */
+  app.get("/agents", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const agents = await prisma.agent.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        user: { select: { email: true } },
+        steps: { orderBy: { index: "asc" }, select: { index: true, status: true, tokens: true } },
+      },
+    });
+    return { data: agents };
+  });
+
+  /** Deploy an agent ON BEHALF of a user. */
+  const OpDeploySchema = z.object({
+    userId: z.string().min(1),
+    name: z.string().min(1).max(80),
+    model: z.string().min(1).max(80),
+    prompts: z.array(z.string().min(1).max(4000)).min(1).max(20),
+  });
+  app.post("/agents/deploy", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const parsed = OpDeploySchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, "userId, name, model and prompts required");
+    const { userId, name, model, prompts } = parsed.data;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new GatewayError("invalid_request", 404, "user not found");
+
+    const agent = await prisma.agent.create({
+      data: {
+        userId,
+        name,
+        model,
+        status: "RUNNING",
+        runBy: "OPERATOR",
+        startedAt: new Date(),
+        steps: { create: prompts.map((prompt, index) => ({ index, prompt })) },
+      },
+      include: { steps: { orderBy: { index: "asc" } } },
+    });
+
+    // Same background execution as the user-facing deploy.
+    void (async () => {
+      let totalTokens = 0;
+      let firstError: string | null = null;
+      for (const step of agent.steps) {
+        try {
+          const result = await adapter.chat({
+            model,
+            messages: [{ role: "user", content: step.prompt }],
+            max_tokens: 2000,
+          });
+          const body = result.body as {
+            choices?: Array<{ message?: { content?: string } }>;
+            usage?: { total_tokens?: number };
+          } | null;
+          const tokens = body?.usage?.total_tokens ?? 0;
+          totalTokens += tokens;
+          await prisma.agentStep.update({
+            where: { id: step.id },
+            data: {
+              status: "COMPLETED",
+              result: (body?.choices?.[0]?.message?.content ?? "").slice(0, 8000),
+              tokens,
+              latencyMs: result.latencyMs,
+            },
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "step failed";
+          if (!firstError) firstError = `step ${step.index}: ${msg}`;
+          await prisma.agentStep.update({
+            where: { id: step.id },
+            data: { status: "FAILED", error: msg.slice(0, 500) },
+          });
+          break;
+        }
+      }
+      await prisma.agent.update({
+        where: { id: agent.id },
+        data: { status: firstError ? "FAILED" : "COMPLETED", totalTokens, error: firstError, finishedAt: new Date() },
+      });
+    })().catch(() => {});
+
+    await prisma.auditLog.create({
+      data: { actorId: "operator", action: "agent.deployed_for_user", target: `agent:${agent.id}`, metadata: { userId, name, model, steps: prompts.length } },
+    });
+    return { agent: { id: agent.id, name: agent.name, status: agent.status } };
+  });
+
+  /** Operator cancel any agent. */
+  app.post("/agents/:id/cancel", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const agent = await prisma.agent.findUnique({ where: { id } });
+    if (!agent) throw new GatewayError("invalid_request", 404, "agent not found");
+    if (agent.status === "COMPLETED" || agent.status === "FAILED") {
+      throw new GatewayError("invalid_request", 400, "agent already finished");
+    }
+    await prisma.agent.update({ where: { id }, data: { status: "CANCELLED", finishedAt: new Date() } });
+    await prisma.auditLog.create({ data: { actorId: "operator", action: "agent.cancelled", target: `agent:${id}` } });
+    return { ok: true };
+  });
 };

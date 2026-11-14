@@ -7,6 +7,7 @@ import type { Queue } from "bullmq";
 import type { Redis } from "ioredis";
 import { newRequestId, toErrorBody, GatewayError } from "@dgtlz/core";
 import { authRoutes } from "./routes/auth.js";
+import { agentRoutes } from "./routes/agents.js";
 import { keyRoutes } from "./routes/keys.js";
 import { chatCompletions } from "./routes/chat.js";
 import { modelsRoute, usageRoutes } from "./routes/usage.js";
@@ -86,6 +87,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   await app.register(authRoutes, { deps, prefix: "/api/v1/auth" });
   await app.register(keyRoutes, { deps, prefix: "/api/v1" });
+  await app.register(agentRoutes, { deps, prefix: "/api/v1/agents" });
   await app.register(chatCompletions, { deps, prefix: "/api/v1" });
   await app.register(modelsRoute, { deps, prefix: "/api/v1" });
   await app.register(usageRoutes, { deps, prefix: "/api/v1" });
