@@ -1,5 +1,5 @@
-/**
- * Operator console API — /api/v1/operator
+﻿/**
+ * Operator console API â€” /api/v1/operator
  * Login dengan username/password (env OPERATOR_USERNAME / OPERATOR_PASSWORD).
  * Session = JWT role OPERATOR (12 jam). Semua endpoint lain di sini butuh token itu.
  */
@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { GatewayError } from "@dgtlz/core";
 import type { AppDeps } from "../app.js";
+import { runAgent } from "../services/agent-runner.js";
 
 const LoginSchema = z.object({
   username: z.string().min(1).max(64),
@@ -68,7 +69,11 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     verifyOperator(req, jwtSecret);
     const users = await prisma.user.findMany({
       orderBy: { createdAt: "desc" },
-      select: { id: true, email: true, name: true, role: true, status: true, createdAt: true },
+      select: {
+        id: true, email: true, name: true, role: true, status: true, createdAt: true,
+        usageQuota: { select: { requestsPerDay: true, tokensPerDay: true } },
+        _count: { select: { apiKeys: true, agents: true } },
+      },
     });
     return { data: users };
   });
@@ -151,19 +156,42 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     verifyOperator(req, jwtSecret);
     const parsed = CreateUserSchema.safeParse(req.body);
     if (!parsed.success) throw new GatewayError("invalid_request", 400, "valid email + password (min 8 chars) required");
-    const { createHash, randomBytes } = await import("node:crypto");
-    const passwordHash = createHash("sha256").update(parsed.data.password + (process.env.JWT_SECRET ?? "")).digest("hex");
+    // Must match the login path (bcrypt) — otherwise these accounts can never sign in.
+    const bcrypt = (await import("bcryptjs")).default;
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
     const user = await prisma.user.create({
       data: {
         email: parsed.data.email.toLowerCase(),
         passwordHash,
         name: parsed.data.name,
         role: parsed.data.role ?? "USER",
+        usageQuota: {
+          create: {
+            requestsPerDay: opts.deps.quota.requestsPerDay,
+            tokensPerDay: opts.deps.quota.tokensPerDay,
+          },
+        },
       },
       select: { id: true, email: true, name: true, role: true, status: true, createdAt: true },
     });
     await prisma.auditLog.create({ data: { actorId: "operator", action: "user.created", target: `user:${user.id}` } });
     return user;
+  });
+
+  /** Reset a user's password (operator). */
+  const ResetPasswordSchema = z.object({ password: z.string().min(8).max(128) });
+  app.patch("/users/:id/password", async (req) => {
+    verifyOperator(req, jwtSecret);
+    const { id } = req.params as { id: string };
+    const parsed = ResetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) throw new GatewayError("invalid_request", 400, "password must be 8-128 characters");
+    const bcrypt = (await import("bcryptjs")).default;
+    const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+    await prisma.user.update({ where: { id }, data: { passwordHash } });
+    // Invalidate existing sessions so the old password can't be reused.
+    await prisma.session.deleteMany({ where: { userId: id } });
+    await prisma.auditLog.create({ data: { actorId: "operator", action: "user.password_reset", target: `user:${id}` } });
+    return { ok: true };
   });
 
   /** Create an API key ON BEHALF of a user. Full key returned exactly once. */
@@ -323,46 +351,7 @@ export const operatorRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app,
     });
 
     // Same background execution as the user-facing deploy.
-    void (async () => {
-      let totalTokens = 0;
-      let firstError: string | null = null;
-      for (const step of agent.steps) {
-        try {
-          const result = await adapter.chat({
-            model,
-            messages: [{ role: "user", content: step.prompt }],
-            max_tokens: 2000,
-          });
-          const body = result.body as {
-            choices?: Array<{ message?: { content?: string } }>;
-            usage?: { total_tokens?: number };
-          } | null;
-          const tokens = body?.usage?.total_tokens ?? 0;
-          totalTokens += tokens;
-          await prisma.agentStep.update({
-            where: { id: step.id },
-            data: {
-              status: "COMPLETED",
-              result: (body?.choices?.[0]?.message?.content ?? "").slice(0, 8000),
-              tokens,
-              latencyMs: result.latencyMs,
-            },
-          });
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "step failed";
-          if (!firstError) firstError = `step ${step.index}: ${msg}`;
-          await prisma.agentStep.update({
-            where: { id: step.id },
-            data: { status: "FAILED", error: msg.slice(0, 500) },
-          });
-          break;
-        }
-      }
-      await prisma.agent.update({
-        where: { id: agent.id },
-        data: { status: firstError ? "FAILED" : "COMPLETED", totalTokens, error: firstError, finishedAt: new Date() },
-      });
-    })().catch(() => {});
+    void runAgent(opts.deps, agent.id).catch(() => {});
 
     await prisma.auditLog.create({
       data: { actorId: "operator", action: "agent.deployed_for_user", target: `agent:${agent.id}`, metadata: { userId, name, model, steps: prompts.length } },

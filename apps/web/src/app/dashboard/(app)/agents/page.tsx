@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -89,14 +89,27 @@ export default function AgentsPage() {
       .catch((e) => setError(e.message));
   }, []);
 
-  // Poll while any agent is RUNNING
+  // Poll while any agent is RUNNING. The running flag lives in a ref so this
+  // effect never re-subscribes on every data update (that caused a fetch storm).
+  const hasRunning = useRef(false);
+  useEffect(() => {
+    hasRunning.current = agents.some((a) => a.status === "RUNNING" || a.status === "QUEUED");
+  }, [agents]);
+
   useEffect(() => {
     load();
     const t = setInterval(() => {
-      if (agents.some((a) => a.status === "RUNNING")) load();
+      if (hasRunning.current && document.visibilityState === "visible") load();
     }, 3000);
-    return () => clearInterval(t);
-  }, [load, agents]);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   useEffect(() => {
     fetch(`${GATEWAY_URL}/api/v1/models`, { credentials: "include" })

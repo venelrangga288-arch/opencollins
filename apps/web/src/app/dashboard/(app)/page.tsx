@@ -43,6 +43,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [quota, setQuota] = useState<{ quota: { requestsPerDay: number; tokensPerDay: number } | null; today: { requests: number; tokens: number } } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,6 +53,11 @@ export default function OverviewPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then(setSummary)
       .catch((e) => setError(e.message));
+
+    fetch(`${GATEWAY_URL}/api/v1/usage/quota`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setQuota)
+      .catch(() => {});
   }, []);
 
   const stats = [
@@ -95,6 +101,37 @@ export default function OverviewPage() {
         ))}
       </div>
 
+      {quota?.quota && (
+        <div className="mt-6 card p-5">
+          <div className="flex items-center justify-between">
+            <div className="stat-label">Today · daily quota</div>
+            <a href="/dashboard/usage" className="text-[11px] text-glint hover:underline">details ↗</a>
+          </div>
+          {[
+            { label: "Requests", used: quota.today.requests, cap: quota.quota.requestsPerDay },
+            { label: "Tokens", used: quota.today.tokens, cap: quota.quota.tokensPerDay },
+          ].map((q) => {
+            const pct = Math.min(100, Math.round((q.used / Math.max(q.cap, 1)) * 100));
+            return (
+              <div key={q.label} className="mt-3">
+                <div className="flex items-baseline justify-between font-mono text-[11px] text-haze-haze">
+                  <span>{q.label}</span>
+                  <span>
+                    {q.used.toLocaleString()} / {q.cap.toLocaleString()} ({pct}%)
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-obsidian-600">
+                  <div
+                    className={`h-full rounded-full ${pct >= 90 ? "bg-red-400" : pct >= 70 ? "bg-amber-400" : "bg-glint"}`}
+                    style={{ width: `${Math.max(pct, 1)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {summary && summary.byDay.length > 0 && (
         <div className="mt-8 card p-5">
           <div className="stat-label">Tokens per day</div>
@@ -114,6 +151,19 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
+
+      <div className="mt-8 grid gap-3 md:grid-cols-3">
+        {[
+          { href: "/dashboard/keys", title: "1 · Create an API key", body: "Keys are shown once. Use them from any OpenAI-compatible SDK." },
+          { href: "/dashboard/playground", title: "2 · Try a request", body: "Send a prompt through the gateway and inspect the raw response." },
+          { href: "/dashboard/agents", title: "3 · Deploy an agent", body: "Run a multi-step task chain and watch each step finish." },
+        ].map((s) => (
+          <a key={s.href} href={s.href} className="card p-4 transition-colors hover:border-glint/50">
+            <div className="font-display text-[13px] font-bold text-haze-white">{s.title}</div>
+            <div className="mt-1 text-[12px] leading-relaxed text-haze-haze">{s.body}</div>
+          </a>
+        ))}
+      </div>
 
       <div className="mt-8 card p-5">
         <div className="flex items-center justify-between">

@@ -1,13 +1,15 @@
 /**
- * GET /models, GET /usage, GET /usage/summary — key-authenticated.
+ * GET /models, GET /usage, GET /usage/summary.
+ * Accepts an API key (`Authorization: Bearer dgtlz_live_...`) or a dashboard
+ * session, so the same endpoints serve both SDK clients and the web app.
  */
 import type { FastifyPluginAsync } from "fastify";
-import { requireApiKey } from "./keys.js";
+import { requireUserOrKey } from "../lib/auth.js";
 import type { AppDeps } from "../app.js";
 
 export const modelsRoute: FastifyPluginAsync<{ deps: AppDeps }> = async (app, opts) => {
   app.get("/models", async (req) => {
-    await requireApiKey(req, opts.deps);
+    await requireUserOrKey(req, opts.deps);
     const models = await opts.deps.adapter.listModels();
 
     // Attach pricing only when verified rows exist.
@@ -35,7 +37,7 @@ export const modelsRoute: FastifyPluginAsync<{ deps: AppDeps }> = async (app, op
 };
 
 export const usageRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app, opts) => {
-  const requireKey = async (req: Parameters<typeof requireApiKey>[1]) => requireApiKey(req as never, opts.deps);
+  const requireKey = async (req: Parameters<typeof requireUserOrKey>[0]) => requireUserOrKey(req, opts.deps);
 
   app.get("/usage", async (req) => {
     const auth = await requireKey(req);
@@ -55,6 +57,31 @@ export const usageRoutes: FastifyPluginAsync<{ deps: AppDeps }> = async (app, op
       opts.deps.prisma.usageRecord.count({ where: { userId: auth.userId, recordedAt: { gte: since, lte: until } } }),
     ]);
     return { data: records, page, pageSize, total };
+  });
+
+  app.get("/usage/quota", async (req) => {
+    const auth = await requireKey(req);
+    const quota = await opts.deps.prisma.usageQuota.findUnique({ where: { userId: auth.userId } });
+
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    const [requestsToday, tokenSum] = await Promise.all([
+      opts.deps.prisma.requestLog.count({ where: { userId: auth.userId, createdAt: { gte: since } } }),
+      opts.deps.prisma.usageRecord.aggregate({
+        where: { userId: auth.userId, recordedAt: { gte: since } },
+        _sum: { totalTokens: true },
+      }),
+    ]);
+
+    return {
+      quota: quota
+        ? { requestsPerDay: quota.requestsPerDay, tokensPerDay: quota.tokensPerDay }
+        : null,
+      today: {
+        requests: requestsToday,
+        tokens: tokenSum._sum.totalTokens ?? 0,
+      },
+    };
   });
 
   app.get("/usage/summary", async (req) => {

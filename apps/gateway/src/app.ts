@@ -63,6 +63,20 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
   await app.register((await import("@fastify/cookie")).default);
 
+  // Some clients POST without a body (logout, cancel, …) and browsers/proxies
+  // may attach a non-JSON content type. Accept those instead of 415-ing.
+  for (const type of ["text/plain", "application/x-www-form-urlencoded", "application/octet-stream"]) {
+    app.addContentTypeParser(type, { parseAs: "string" }, (_req, body, done) => {
+      const raw = String(body ?? "").trim();
+      if (!raw) return done(null, {});
+      try {
+        done(null, JSON.parse(raw));
+      } catch {
+        done(null, {});
+      }
+    });
+  }
+
   // Request ID + standardized error envelope
   app.addHook("onRequest", async (req) => {
     (req as unknown as { requestId: string }).requestId =

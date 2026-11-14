@@ -21,8 +21,11 @@ export default function PlaygroundPage() {
     fetch(`${GATEWAY_URL}/api/v1/models`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((json) => {
-        setModels(json.data.map((m: { id: string }) => m.id));
-        if (json.data.length > 0) setModel(json.data[0].id);
+        const ids: string[] = json.data.map((m: { id: string }) => m.id);
+        setModels(ids);
+        // Prefer the plan's default model; upstream returns 403 for others.
+        if (ids.includes("glm-5.3-flash")) setModel("glm-5.3-flash");
+        else if (ids.length > 0) setModel(ids[0]);
       })
       .catch((e) => setError(e.message));
   }, []);
@@ -43,9 +46,16 @@ export default function PlaygroundPage() {
         }),
       });
       const latencyMs = Math.round(performance.now() - started);
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? `HTTP ${res.status}`);
+      // A 502 from the edge/tunnel returns HTML — never let that throw a parse error.
+      const raw = await res.text();
+      let body: { error?: { message?: string }; usage?: unknown } | null = null;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        body = null;
+      }
+      if (!res.ok || !body) {
+        setError(body?.error?.message ?? `HTTP ${res.status} — gateway/proxy returned no JSON`);
       } else {
         setResult({
           body: JSON.stringify(body, null, 2),

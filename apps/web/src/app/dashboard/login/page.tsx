@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -16,6 +16,23 @@ export default function DashboardLoginPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /** Only allow same-site relative redirects. */
+  function nextTarget(): string {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+  }
+
+  // Already signed in? Skip the form.
+  useEffect(() => {
+    fetch(`${GATEWAY_URL}/api/v1/auth/me`, { credentials: "include", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.user) window.location.replace(nextTarget());
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +64,7 @@ export default function DashboardLoginPage() {
           return;
         }
       }
-      window.location.href = "/dashboard";
+      window.location.href = nextTarget();
     } finally {
       setLoading(false);
     }
@@ -122,6 +139,11 @@ export default function DashboardLoginPage() {
         </button>
         <div className="mt-4 text-center font-mono text-[10px] text-haze-haze">
           keys &amp; usage are per-account · quotas apply
+        </div>
+        <div className="mt-3 text-center">
+          <a href="/collins" className="text-[11px] text-haze-haze hover:text-glint">
+            ← back to landing
+          </a>
         </div>
       </form>
     </div>

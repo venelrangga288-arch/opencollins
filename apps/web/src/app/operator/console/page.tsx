@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -57,7 +57,16 @@ interface Stats {
   users: number; activeKeys: number; requests24h: number; errors24h: number;
   avgLatencyMs: number; tokens24h: number;
 }
-interface UserRow { id: string; email: string; name: string | null; role: string; status: string; createdAt: string }
+interface UserRow {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  usageQuota: { requestsPerDay: number; tokensPerDay: number } | null;
+  _count?: { apiKeys: number; agents: number };
+}
 interface KeyRow { id: string; name: string; prefix: string; status: string; requestCount: number; lastUsedAt: string | null; user: { email: string }; userId: string }
 interface ReqRow { id: string; model: string; status: string; httpStatus: number; latencyMs: number; createdAt: string; user: { email: string } }
 interface AuditRow { id: string; action: string; target: string | null; createdAt: string }
@@ -330,6 +339,7 @@ function UsersTab({ token, users, onToggle }: {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [asAdmin, setAsAdmin] = useState(false);
+  const [manage, setManage] = useState<UserRow | null>(null);
 
   return (
     <>
@@ -361,25 +371,115 @@ function UsersTab({ token, users, onToggle }: {
       </div>
       <div className="mt-5">
         <Table
-          headers={["Email", "Name", "Role", "Status", "Created", ""]}
+          headers={["Email", "Name", "Role", "Status", "Quota / day", "Keys", "Created", ""]}
           rows={users.data?.data ?? []}
           render={(u: UserRow) => [
             <span key={`e${u.id}`} className="text-haze-white">{u.email}</span>,
             u.name ?? "—",
             <span key={`r${u.id}`} className="font-mono text-xs text-glint">{u.role}</span>,
             <Badge key={u.id} value={u.status} />,
+            <span key={`q${u.id}`} className="font-mono text-[11px] text-haze-lite">
+              {u.usageQuota
+                ? `${u.usageQuota.requestsPerDay.toLocaleString()} req · ${(u.usageQuota.tokensPerDay / 1000).toLocaleString()}k tok`
+                : "default"}
+            </span>,
+            u._count?.apiKeys ?? 0,
             new Date(u.createdAt).toLocaleDateString(),
-            <button
-              key={`b${u.id}`}
-              onClick={() => onToggle(u.id, u.status)}
-              className={u.status === "ACTIVE" ? "text-xs text-red-400 hover:underline" : "text-xs text-emerald-400 hover:underline"}
-            >
-              {u.status === "ACTIVE" ? "Suspend" : "Reactivate"}
-            </button>,
+            <div key={`a${u.id}`} className="flex gap-3">
+              <button onClick={() => setManage(u)} className="text-xs text-glint hover:underline">Manage</button>
+              <button
+                onClick={() => onToggle(u.id, u.status)}
+                className={u.status === "ACTIVE" ? "text-xs text-red-400 hover:underline" : "text-xs text-emerald-400 hover:underline"}
+              >
+                {u.status === "ACTIVE" ? "Suspend" : "Reactivate"}
+              </button>
+            </div>,
           ]}
         />
       </div>
+
+      {manage && (
+        <UserManageModal
+          token={token}
+          user={manage}
+          onClose={() => setManage(null)}
+          onSaved={() => { users.reload(); setManage(null); }}
+        />
+      )}
     </>
+  );
+}
+
+function UserManageModal({ token, user, onClose, onSaved }: {
+  token: string;
+  user: UserRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [requests, setRequests] = useState(String(user.usageQuota?.requestsPerDay ?? 1000));
+  const [tokens, setTokens] = useState(String(user.usageQuota?.tokensPerDay ?? 1_000_000));
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="card w-full max-w-md bg-obsidian-900 p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="font-display text-sm font-bold text-haze-white">Manage user</div>
+          <button onClick={onClose} className="text-haze-haze hover:text-white">✕</button>
+        </div>
+        <div className="mt-1 truncate font-mono text-[11px] text-glint">{user.email}</div>
+
+        <div className="mt-4 font-mono text-[10px] uppercase tracking-widest text-haze-haze">Daily quota</div>
+        <div className="mt-2 flex gap-2">
+          <input value={requests} onChange={(e) => setRequests(e.target.value)} className="input-dark w-1/2" placeholder="requests/day" />
+          <input value={tokens} onChange={(e) => setTokens(e.target.value)} className="input-dark w-1/2" placeholder="tokens/day" />
+        </div>
+        <button
+          onClick={async () => {
+            setErr(null); setMsg(null); setBusy(true);
+            try {
+              await opFetch(token, `/api/v1/operator/users/${user.id}/quota`, "PATCH", {
+                requestsPerDay: Number(requests), tokensPerDay: Number(tokens),
+              });
+              setMsg("Quota updated.");
+            } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+          }}
+          disabled={busy}
+          className="btn-white mt-2 disabled:opacity-40"
+        >
+          Save quota
+        </button>
+
+        <div className="mt-5 font-mono text-[10px] uppercase tracking-widest text-haze-haze">Reset password</div>
+        <div className="mt-2 flex gap-2">
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="new password (min 8)" className="input-dark flex-1" />
+          <button
+            onClick={async () => {
+              setErr(null); setMsg(null); setBusy(true);
+              try {
+                await opFetch(token, `/api/v1/operator/users/${user.id}/password`, "PATCH", { password });
+                setPassword("");
+                setMsg("Password reset — user sessions revoked.");
+              } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+            }}
+            disabled={busy || password.length < 8}
+            className="btn-ghost disabled:opacity-40"
+          >
+            Reset
+          </button>
+        </div>
+
+        {msg && <div className="mt-3 text-[12px] text-emerald-300">{msg}</div>}
+        {err && <div className="mt-3 text-[12px] text-red-400">{err}</div>}
+
+        <div className="mt-5 flex justify-end">
+          <button onClick={onSaved} className="btn-ghost">Done</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -565,13 +665,15 @@ function OperatorAgentsTab({ token, users, models }: { token: string; users: Use
       .catch((e) => setErr(e.message));
   }, [token]);
 
+  const hasRunning = useRef(false);
+  useEffect(() => {
+    hasRunning.current = !!agents?.some((a) => a.status === "RUNNING" || a.status === "QUEUED");
+  }, [agents]);
+
   useEffect(() => {
     load();
     const t = setInterval(() => {
-      setAgents((cur) => {
-        if (cur?.some((a) => a.status === "RUNNING")) load();
-        return cur;
-      });
+      if (hasRunning.current && document.visibilityState === "visible") load();
     }, 4000);
     return () => clearInterval(t);
   }, [load]);

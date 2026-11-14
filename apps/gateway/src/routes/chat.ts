@@ -5,7 +5,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { GatewayError } from "@dgtlz/core";
-import { requireApiKey } from "./keys.js";
+import { requireUserOrKey } from "../lib/auth.js";
+import { assertWithinQuota } from "../lib/quota.js";
 import type { AppDeps } from "../app.js";
 import type { UsageJobData } from "../services/usage-logger.js";
 
@@ -33,29 +34,10 @@ export const chatCompletions: FastifyPluginAsync<{ deps: AppDeps }> = async (app
     }
   }
 
-  async function checkQuota(userId: string): Promise<void> {
-    const quota = await prisma.usageQuota.findUnique({ where: { userId } });
-    if (!quota) return;
-    const since = new Date();
-    since.setHours(0, 0, 0, 0);
-    const [requestCount, tokenSum] = await Promise.all([
-      prisma.requestLog.count({ where: { userId, createdAt: { gte: since } } }),
-      prisma.usageRecord.aggregate({
-        where: { userId, recordedAt: { gte: since } },
-        _sum: { totalTokens: true },
-      }),
-    ]);
-    if (requestCount >= quota.requestsPerDay) {
-      throw new GatewayError("quota_exceeded", 429, `daily request quota exceeded (${quota.requestsPerDay})`);
-    }
-    const tokens = tokenSum._sum.totalTokens ?? 0;
-    if (tokens >= quota.tokensPerDay) {
-      throw new GatewayError("quota_exceeded", 429, `daily token quota exceeded (${quota.tokensPerDay})`);
-    }
-  }
+  const checkQuota = (userId: string) => assertWithinQuota(opts.deps, userId);
 
   app.post("/chat/completions", async (req, reply) => {
-    const auth = await requireApiKey(req, opts.deps);
+    const auth = await requireUserOrKey(req, opts.deps);
     const requestId = (req as unknown as { requestId: string }).requestId;
 
     await checkRateLimit(auth.userId);

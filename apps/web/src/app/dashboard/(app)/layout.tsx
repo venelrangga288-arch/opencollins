@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "./session";
+import { SessionStatus, useSession, type SessionUser } from "./session";
 
 // Same-origin on the public domain (tunnel routes /api/v1/* to the gateway);
 // only fall back to the local gateway when browsing from localhost.
@@ -22,8 +22,17 @@ const NAV = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, state, retry } = useSession();
+
+  if (state.phase !== "ready") {
+    return <SessionStatus state={state} retry={retry} />;
+  }
+
+  return <DashboardShell user={user}>{children}</DashboardShell>;
+}
+
+function DashboardShell({ user, children }: { user: SessionUser | null; children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user } = useSession();
 
   return (
     <div className="flex h-screen overflow-hidden bg-obsidian-950 text-haze-bright">
@@ -97,7 +106,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="truncate font-mono text-[10px] text-haze-haze">{user.email} · {user.role}</div>
               <button
                 onClick={async () => {
-                  await fetch(`${GATEWAY_URL}/api/v1/auth/logout`, { method: "POST", credentials: "include" });
+                  await fetch(`${GATEWAY_URL}/api/v1/auth/logout`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: "{}",
+                  });
                   window.location.href = "/dashboard/login";
                 }}
                 className="mt-2 text-[11px] text-red-400 hover:underline"
