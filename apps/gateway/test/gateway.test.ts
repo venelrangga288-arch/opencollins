@@ -1,5 +1,5 @@
-/**
- * Integration tests for the gateway — mocked provider, real Prisma/Redis
+﻿/**
+ * Integration tests for the gateway â€” mocked provider, real Prisma/Redis
  * are replaced with lightweight fakes so the suite runs without services.
  *
  * Covers:
@@ -107,7 +107,7 @@ async function makeApp() {
 }
 
 async function createKey(fakePrisma: any): Promise<string> {
-  const generated = generateApiKey();
+  const generated = generateApiKey(SECRET);
   const user = { id: "user_1", status: "ACTIVE", role: "USER" };
   fakePrisma.apiKey.findUnique.mockImplementation(async ({ where }: any) =>
     where.keyHash === generated.hash
@@ -210,7 +210,7 @@ describe("gateway integration (mock provider)", () => {
       headers: { authorization: `Bearer ${key}` },
       payload: { model: "totally-unknown-model", messages: [{ role: "user", content: "hi" }] },
     });
-    // MockAdapter lists models; "totally-unknown-model" isn't there → 404
+    // MockAdapter lists models; "totally-unknown-model" isn't there â†’ 404
     expect([200, 404]).toContain(res.statusCode); // depends on registration path
     if (res.statusCode === 404) {
       expect(res.json().error.code).toBe("model_not_found");
@@ -278,7 +278,7 @@ describe("gateway integration (mock provider)", () => {
     expect(created.billingStatus).toBe("TRACKED");
   });
 
-  it("marks UNPRICED when no pricing exists — cost null, never fabricated", async () => {
+  it("marks UNPRICED when no pricing exists â€” cost null, never fabricated", async () => {
     const { processUsageJob } = await import("../src/services/usage-logger.js");
     ctx.fakePrisma.modelPricing.findFirst.mockResolvedValue(null);
     const log = { debug: () => {}, info: () => {}, error: () => {} } as never;

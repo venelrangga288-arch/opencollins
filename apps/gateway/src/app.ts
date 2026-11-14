@@ -93,6 +93,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       reply.status(400).send(toErrorBody("invalid_request", err.message, requestId));
       return;
     }
+    // Fastify content-type/body errors carry a 4xx status — surface them as
+    // client errors instead of masking them as 500 internal errors.
+    const statusCode = (err as { statusCode?: number }).statusCode;
+    if (statusCode && statusCode >= 400 && statusCode < 500) {
+      reply.status(statusCode).send(toErrorBody("invalid_request", err.message, requestId));
+      return;
+    }
     req.log.error({ err }, "unhandled error");
     reply.status(500).send(toErrorBody("internal_error", "internal server error", requestId));
   });

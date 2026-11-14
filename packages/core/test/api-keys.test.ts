@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { extractBearerKey, generateApiKey, hashApiKey, isDgtlzKey, verifyApiKey } from "../src/api-keys.js";
 
 const SECRET = "test-secret-that-is-not-change-me";
@@ -14,21 +14,21 @@ describe("api key generation", () => {
   });
 
   it("generates unique keys", () => {
-    const a = generateApiKey().key;
-    const b = generateApiKey().key;
+    const a = generateApiKey(SECRET).key;
+    const b = generateApiKey(SECRET).key;
     expect(a).not.toBe(b);
   });
 });
 
 describe("api key hashing", () => {
   it("hashes deterministically with HMAC", () => {
-    const { key } = generateApiKey();
+    const { key } = generateApiKey(SECRET);
     expect(hashApiKey(key, SECRET)).toBe(hashApiKey(key, SECRET));
     expect(hashApiKey(key, SECRET)).not.toBe(key);
   });
 
   it("refuses placeholder secrets", () => {
-    const { key } = generateApiKey();
+    const { key } = generateApiKey(SECRET);
     expect(() => hashApiKey(key, "change-me-32-bytes-hex")).toThrow();
     expect(() => hashApiKey(key, "")).toThrow();
   });
@@ -36,18 +36,18 @@ describe("api key hashing", () => {
 
 describe("api key verification", () => {
   it("verifies the correct key", () => {
-    const { key, hash } = generateApiKey();
+    const { key, hash } = generateApiKey(SECRET);
     expect(verifyApiKey(key, hash, SECRET)).toBe(true);
   });
 
   it("rejects wrong keys", () => {
-    const { hash } = generateApiKey();
-    const other = generateApiKey().key;
+    const { hash } = generateApiKey(SECRET);
+    const other = generateApiKey(SECRET).key;
     expect(verifyApiKey(other, hash, SECRET)).toBe(false);
   });
 
   it("rejects tampered keys of same length", () => {
-    const { key, hash } = generateApiKey();
+    const { key, hash } = generateApiKey(SECRET);
     const tampered = key.slice(0, -1) + (key.endsWith("A") ? "B" : "A");
     expect(verifyApiKey(tampered, hash, SECRET)).toBe(false);
   });

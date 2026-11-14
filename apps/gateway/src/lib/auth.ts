@@ -65,5 +65,10 @@ export async function requireUserOrKey(req: FastifyRequest, deps: AppDeps): Prom
     const auth = await requireApiKey(req, deps);
     return { userId: auth.userId, role: auth.role, apiKeyId: auth.apiKeyId };
   }
+  // No API key and no dashboard session → the caller simply forgot to
+  // authenticate; say so explicitly instead of a vague "not authenticated".
+  if (!header && !req.cookies?.["dgtlz_session"]) {
+    throw new GatewayError("missing_api_key", 401, "missing Authorization: Bearer <dgtlz_live_...> key");
+  }
   return requireSessionUser(req, deps);
 }
